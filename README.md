@@ -2,225 +2,566 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Warium Ballistic Calculator (Artillery / Battle Cannon)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Warium Ballistic Calculator</title>
   <style>
-    :root { color-scheme: dark; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 20px; max-width: 1050px; }
-    h1 { font-size: 20px; margin: 0 0 14px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .card { border: 1px solid #333; border-radius: 10px; padding: 14px; background: #111; }
-    label { display:block; font-size: 12px; opacity: 0.85; margin: 10px 0 4px; }
-    input, select, button, textarea {
-      width: 100%; box-sizing: border-box; padding: 10px;
-      border-radius: 8px; border: 1px solid #333;
-      background:#0b0b0b; color:#eee;
+    :root{
+      --bg:#0b0d12;
+      --panel:#111522;
+      --panel2:#0f1320;
+      --text:#e9eefb;
+      --muted:#a9b4d0;
+      --line:#27304a;
+      --accent:#7aa2ff;
+      --good:#4ade80;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:14px;
+      --radius-sm:10px;
+      --pad:14px;
+      --pad-lg:18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     }
-    .row { display:flex; gap:10px; }
-    .row > * { flex: 1; }
-    button { cursor:pointer; font-weight: 600; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-    .out { white-space: pre-wrap; line-height: 1.35; }
-    .small { font-size: 12px; opacity: 0.8; }
-    .warn { color: #ffb84d; }
-    .ok { color: #6ee7b7; }
-    .bad { color: #ff7a7a; }
-    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #333; margin-left:8px; font-size: 12px; }
-    hr { border:0; border-top:1px solid #333; margin:12px 0; }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family:var(--sans);
+      background:
+        radial-gradient(1200px 700px at 30% -10%, rgba(122,162,255,.18), transparent 60%),
+        radial-gradient(900px 600px at 100% 0%, rgba(74,222,128,.10), transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+
+    .wrap{
+      max-width:1180px;
+      margin:0 auto;
+      padding: 18px 16px 28px;
+    }
+
+    header{
+      display:flex;
+      gap:12px;
+      align-items:flex-end;
+      justify-content:space-between;
+      padding: 10px 4px 16px;
+    }
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+      line-height:1.2;
+    }
+    .subtitle{
+      margin:0;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      background: rgba(255,255,255,.02);
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      align-items:start;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), transparent 120%), var(--panel);
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card-h{
+      padding: 14px 16px 10px;
+      border-bottom:1px solid rgba(39,48,74,.65);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .card-h .h{
+      font-size:13px;
+      color:var(--muted);
+      letter-spacing:.25px;
+      text-transform:uppercase;
+      margin:0;
+    }
+    .card-b{ padding: 14px 16px 16px; }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .row3{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:10px;
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin: 10px 0 6px;
+    }
+
+    input, select, textarea, button{
+      width:100%;
+      font: inherit;
+      color:var(--text);
+      border-radius: var(--radius-sm);
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.02);
+      padding: 11px 12px;
+      outline:none;
+    }
+    textarea{ resize:vertical; min-height: 140px; font-family: var(--mono); }
+
+    input:focus, select:focus, textarea:focus{
+      border-color: rgba(122,162,255,.7);
+      box-shadow: 0 0 0 3px rgba(122,162,255,.15);
+    }
+
+    .help{
+      margin:10px 0 0;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+      margin-top: 14px;
+    }
+    .btn{
+      cursor:pointer;
+      user-select:none;
+      font-weight:700;
+      border:1px solid var(--line);
+      background: rgba(122,162,255,.12);
+    }
+    .btn:hover{ background: rgba(122,162,255,.18); }
+    .btn2{
+      cursor:pointer;
+      user-select:none;
+      font-weight:700;
+      background: rgba(255,255,255,.04);
+    }
+    .btn2:hover{ background: rgba(255,255,255,.07); }
+
+    .status{
+      font-family: var(--mono);
+      white-space: pre-wrap;
+      line-height:1.35;
+      font-size:13px;
+      margin:0;
+    }
+    .status .ok{ color:var(--good); }
+    .status .warn{ color:var(--warn); }
+    .status .bad{ color:var(--bad); }
+
+    .monoOut{
+      font-family: var(--mono);
+      white-space: pre-wrap;
+      line-height:1.35;
+      font-size:13px;
+      margin:0;
+    }
+
+    details{
+      border:1px solid rgba(39,48,74,.6);
+      border-radius: var(--radius-sm);
+      background: rgba(255,255,255,.02);
+      padding: 10px 12px;
+      margin-top: 10px;
+    }
+    summary{
+      cursor:pointer;
+      color: var(--text);
+      font-weight:700;
+      list-style:none;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    .summarySub{
+      color: var(--muted);
+      font-weight:600;
+      font-size:12px;
+      margin-top:4px;
+    }
+
+    .miniActions{
+      display:flex;
+      gap:10px;
+      margin-top: 10px;
+    }
+
+    .tiny{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .rightTools{
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    .iconBtn{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.03);
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      cursor:pointer;
+      color:var(--muted);
+    }
+    .iconBtn:hover{ background: rgba(255,255,255,.06); color:var(--text); }
+
+    /* Mobile */
+    @media (max-width: 940px){
+      .grid{ grid-template-columns: 1fr; }
+      .row{ grid-template-columns: 1fr; }
+      .row3{ grid-template-columns: 1fr; }
+      header{ align-items:flex-start; flex-direction:column; }
+      .rightTools{ width:100%; justify-content:flex-start; }
+      .actions{ flex-direction:column; }
+      .miniActions{ flex-direction:column; }
+      textarea{ min-height: 160px; }
+    }
+
+    /* Sticky compute bar for mobile */
+    .stickyBar{
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      padding: 12px 0 0;
+      margin-top: 14px;
+      background: linear-gradient(180deg, transparent, rgba(11,13,18,.85) 30%, rgba(11,13,18,.95));
+      backdrop-filter: blur(8px);
+    }
+    .stickyBar .actions{ margin:0; padding: 10px 0 6px; }
+    @media (min-width: 941px){
+      .stickyBar{ position: static; background: none; backdrop-filter:none; }
+    }
   </style>
 </head>
 <body>
-  <h1>Warium Ballistic Calculator <span class="pill">1.20.1</span></h1>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Warium Ballistic Calculator</h1>
+        <p class="subtitle">Artillery • Battle Cannon • Large Rocket (tick-physics solver, with low/high arc for cannons)</p>
+      </div>
+      <div class="rightTools">
+        <span class="pill"><span style="color:var(--accent);font-weight:800;">MC 1.20.1</span> • mobile-friendly</span>
+        <button class="iconBtn" id="scrollToResults" type="button">Results ↓</button>
+      </div>
+    </header>
 
-  <div class="grid">
-    <div class="card">
-      <h2 style="font-size:16px;margin:0 0 8px;">Inputs</h2>
+    <div class="grid">
+      <!-- INPUTS -->
+      <section class="card">
+        <div class="card-h">
+          <p class="h">Inputs</p>
+          <span class="tiny">All distances in blocks. Angles in degrees.</span>
+        </div>
+        <div class="card-b">
 
-      <label>Weapon</label>
-      <select id="weapon">
-        <option value="ARTILLERY">Artillery Breech (crusty_chunks)</option>
-        <option value="BATTLE">Battle Cannon Breech (crusty_chunks)</option>
-      </select>
-
-      <div class="row">
-        <div>
-          <label>Cannon facing</label>
-          <select id="facing">
-            <option value="NORTH">North (-Z)</option>
-            <option value="EAST">East (+X)</option>
-            <option value="SOUTH">South (+Z)</option>
-            <option value="WEST">West (-X)</option>
+          <label>Weapon</label>
+          <select id="weapon">
+            <option value="ARTILLERY">Artillery Breech</option>
+            <option value="BATTLE">Battle Cannon Breech</option>
+            <option value="LARGE_ROCKET">Large Rocket</option>
           </select>
-        </div>
-        <div>
-          <label>ProjectileLib installed?</label>
-          <select id="plib">
-            <option value="NO">No (factor 1.0)</option>
-            <option value="YES">Yes (factor 2.0)</option>
-          </select>
-        </div>
-      </div>
 
-      <label>Barrel mode</label>
-      <select id="barrelMode">
-        <option value="FIXED">I already have N barrels</option>
-        <option value="SEARCH">Find minimum barrels to hit (1..Max)</option>
-      </select>
+          <!-- Cannon-only options -->
+          <div id="cannonWrap">
+            <div class="row">
+              <div>
+                <label>Cannon facing</label>
+                <select id="facing">
+                  <option value="NORTH">North (-Z)</option>
+                  <option value="EAST">East (+X)</option>
+                  <option value="SOUTH">South (+Z)</option>
+                  <option value="WEST">West (-X)</option>
+                </select>
+              </div>
+              <div>
+                <label>ProjectileLib installed?</label>
+                <select id="plib">
+                  <option value="NO">No (factor 1.0)</option>
+                  <option value="YES">Yes (factor 2.0)</option>
+                </select>
+              </div>
+            </div>
 
-      <div class="row" id="barrelFixedRow">
-        <div>
-          <label>Barrels (count of barrel blocks)</label>
-          <input id="barrels" type="number" step="1" min="0" value="12"/>
-        </div>
-        <div>
-          <label>Apply Warium muzzle offset?</label>
-          <select id="useMuzzle">
-            <option value="YES">Yes (recommended)</option>
-            <option value="NO">No (treat shooter coords as muzzle)</option>
-          </select>
-        </div>
-      </div>
+            <div class="row">
+              <div>
+                <label>Arc preference</label>
+                <select id="arcPref">
+                  <option value="LOW">Low arc (flatter)</option>
+                  <option value="HIGH">High arc (lob over terrain)</option>
+                </select>
+              </div>
+              <div>
+                <label>High-arc minimum elevation (deg)</label>
+                <input id="highArcMinDeg" type="number" step="0.1" value="55.0"/>
+              </div>
+            </div>
 
-      <div class="row" id="barrelSearchRow" style="display:none;">
-        <div>
-          <label>Max barrels to test</label>
-          <input id="maxBarrels" type="number" step="1" min="1" value="16"/>
-        </div>
-        <div>
-          <label>Apply Warium muzzle offset?</label>
-          <select id="useMuzzle2">
-            <option value="YES">Yes (recommended)</option>
-            <option value="NO">No (treat shooter coords as muzzle)</option>
-          </select>
-        </div>
-      </div>
+            <label>Barrel mode</label>
+            <select id="barrelMode">
+              <option value="FIXED">I already have N barrels</option>
+              <option value="SEARCH">Find minimum barrels to hit (1..Max)</option>
+            </select>
 
-      <label class="small">
-        “Barrels” here means the same thing Warium counts: the number of barrel blocks in front of the breech.
-      </label>
+            <div class="row" id="barrelFixedRow">
+              <div>
+                <label>Barrels (count of barrel blocks)</label>
+                <input id="barrels" type="number" step="1" min="0" value="12"/>
+              </div>
+              <div>
+                <label>Shooter coordinates represent</label>
+                <select id="coordsAre">
+                  <option value="BREECH">Breech block position</option>
+                  <option value="MUZZLE">Muzzle/spawn position</option>
+                </select>
+              </div>
+            </div>
 
-      <div class="row">
-        <div>
-          <label>Shooter X</label>
-          <input id="sx" type="number" step="0.01" value="0"/>
-        </div>
-        <div>
-          <label>Shooter Y</label>
-          <input id="sy" type="number" step="0.01" value="64"/>
-        </div>
-        <div>
-          <label>Shooter Z</label>
-          <input id="sz" type="number" step="0.01" value="0"/>
-        </div>
-      </div>
+            <div class="row" id="barrelSearchRow" style="display:none;">
+              <div>
+                <label>Max barrels to test</label>
+                <input id="maxBarrels" type="number" step="1" min="1" value="16"/>
+              </div>
+              <div>
+                <label>Shooter coordinates represent</label>
+                <select id="coordsAre2">
+                  <option value="BREECH">Breech block position</option>
+                  <option value="MUZZLE">Muzzle/spawn position</option>
+                </select>
+              </div>
+            </div>
 
-      <div class="row">
-        <div>
-          <label>Target X</label>
-          <input id="tx" type="number" step="0.01" value="700"/>
-        </div>
-        <div>
-          <label>Target Y</label>
-          <input id="ty" type="number" step="0.01" value="64"/>
-        </div>
-        <div>
-          <label>Target Z</label>
-          <input id="tz" type="number" step="0.01" value="0"/>
-        </div>
-      </div>
+            <p class="help">
+              Cannon solver supports true <b>high-arc</b> by restricting the elevation search range near vertical.
+              Use it to “shoot over” terrain when a low arc would intersect hills/mountains.
+            </p>
+          </div>
 
-      <div class="row">
-        <div>
-          <label>Accuracy tolerance (blocks)</label>
-          <input id="tol" type="number" step="0.01" value="0.50"/>
+          <!-- Rocket-only options -->
+          <div id="rocketWrap" style="display:none;">
+            <div class="row">
+              <div>
+                <label>Launcher orientation</label>
+                <select id="rocketOri">
+                  <option value="HORIZONTAL">Horizontal assembly</option>
+                  <option value="VERTICAL">Vertical assembly</option>
+                </select>
+              </div>
+              <div>
+                <label>ProjectileLib installed?</label>
+                <select id="plibR">
+                  <option value="NO">No (factor 1.0)</option>
+                  <option value="YES">Yes (factor 2.0)</option>
+                </select>
+              </div>
+            </div>
+
+            <details>
+              <summary>Advanced rocket parameters</summary>
+              <div class="summarySub">Only touch these if your ordnance assembly launches differently than default Warium Large Rocket.</div>
+
+              <div class="row">
+                <div>
+                  <label>Initial launch speed (blocks/tick)</label>
+                  <input id="rInitSpeed" type="number" step="0.01" value="4.00"/>
+                </div>
+                <div>
+                  <label>Boost ticks</label>
+                  <input id="rBoostTicks" type="number" step="1" value="40"/>
+                </div>
+              </div>
+
+              <div class="row">
+                <div>
+                  <label>Boost per tick (multiplier base)</label>
+                  <input id="rBoostPerTick" type="number" step="0.001" value="0.020"/>
+                </div>
+                <div>
+                  <label>Vertical reach factor (0–1)</label>
+                  <input id="rVerticalHorizFactor" type="number" step="0.01" value="0.70"/>
+                </div>
+              </div>
+
+              <p class="help">
+                “Vertical reach factor” models the practical loss of horizontal reach when the assembly is vertical.
+                0.70 means you need ~1/0.70 ≈ 1.43× more effective reach to hit the same horizontal distance.
+              </p>
+            </details>
+          </div>
+
+          <hr>
+
+          <div class="row3">
+            <div>
+              <label>Shooter X</label>
+              <input id="sx" type="number" step="0.01" value="0"/>
+            </div>
+            <div>
+              <label>Shooter Y</label>
+              <input id="sy" type="number" step="0.01" value="64"/>
+            </div>
+            <div>
+              <label>Shooter Z</label>
+              <input id="sz" type="number" step="0.01" value="0"/>
+            </div>
+          </div>
+
+          <div class="row3">
+            <div>
+              <label>Target X</label>
+              <input id="tx" type="number" step="0.01" value="700"/>
+            </div>
+            <div>
+              <label>Target Y</label>
+              <input id="ty" type="number" step="0.01" value="64"/>
+            </div>
+            <div>
+              <label>Target Z</label>
+              <input id="tz" type="number" step="0.01" value="0"/>
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Accuracy tolerance (blocks)</label>
+              <input id="tol" type="number" step="0.01" value="0.50"/>
+            </div>
+            <div>
+              <label>Max simulation ticks</label>
+              <input id="maxt" type="number" step="1" value="900"/>
+            </div>
+          </div>
+
+          <div class="stickyBar">
+            <div class="actions">
+              <button class="btn" id="compute" type="button">Compute</button>
+              <button class="btn2" id="swap" type="button">Swap shooter / target</button>
+            </div>
+          </div>
+
+          <p class="help">
+            Output:
+            <b>Yaw/Pitch (Aimer)</b> are the angles you’d dial into the Warium aimer logic for the cannon.
+            For cannons, you also get <b>tan-encoded tags</b> (PitchTag / XTag / ZTag) if you want exact BE values.
+          </p>
         </div>
-        <div>
-          <label>Max sim ticks</label>
-          <input id="maxt" type="number" step="1" value="900"/>
+      </section>
+
+      <!-- RESULTS -->
+      <section class="card" id="resultsCard">
+        <div class="card-h">
+          <p class="h">Results</p>
+          <div class="rightTools">
+            <button class="iconBtn" id="copyBtn" type="button">Copy</button>
+            <button class="iconBtn" id="clearBtn" type="button">Clear</button>
+          </div>
         </div>
-      </div>
-
-      <label class="small">
-        Physics model: vanilla-arrow style per tick: move → drag 0.99 → gravity 0.05.
-      </label>
-
-      <div class="row" style="margin-top:12px;">
-        <button id="compute">Compute</button>
-        <button id="swap">Swap shooter/target</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2 style="font-size:16px;margin:0 0 8px;">Output</h2>
-      <div id="status" class="mono out"></div>
-      <hr>
-      <div id="result" class="mono out"></div>
-      <hr>
-      <label>Copy-friendly</label>
-      <textarea id="copy" class="mono" rows="9" readonly></textarea>
-      <div class="small" style="margin-top:10px;">
-        Notes:
-        <ul>
-          <li>Yaw/Pitch shown are the degrees you’d set on Warium’s Aimer item.</li>
-          <li>“PitchTag / XTag / ZTag” are the actual tan()-encoded BlockEntity values Warium writes.</li>
-        </ul>
-      </div>
+        <div class="card-b">
+          <pre id="status" class="status"></pre>
+          <hr>
+          <pre id="result" class="monoOut"></pre>
+          <hr>
+          <label>Copy-friendly</label>
+          <textarea id="copy" readonly></textarea>
+          <div class="miniActions">
+            <button class="btn2" id="copyBtn2" type="button">Copy text above</button>
+            <button class="btn2" id="scrollToTop" type="button">Back to inputs ↑</button>
+          </div>
+          <p class="help">
+            High-arc mode: solver searches elevations starting at your “High-arc minimum elevation” (default 55°).
+            If you still clip mountains, raise the minimum (e.g., 65–75°) at the cost of range.
+          </p>
+        </div>
+      </section>
     </div>
   </div>
 
 <script>
-  // --- Helpers ---
+(() => {
   const DEG = Math.PI / 180.0;
+  const $ = (id) => document.getElementById(id);
+  const getNum = (id) => Number($(id).value);
 
-  function dot(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
-  function len2(x,z){ return Math.sqrt(x*x + z*z); }
+  function wrapDegrees(deg) {
+    deg %= 360;
+    if (deg >= 180) deg -= 360;
+    if (deg < -180) deg += 360;
+    return deg;
+  }
+
+  // Global MC yaw (informational)
+  function computeMinecraftYawDeg(dx, dz) {
+    const yawRad = Math.atan2(-dx, dz);
+    return wrapDegrees(yawRad * 180 / Math.PI);
+  }
 
   function basisFromFacing(facing){
-    // forward + right (XZ-plane), matching “looking down barrel”
-    // NORTH: forward (0,0,-1), right (1,0,0)
-    // EAST:  forward (1,0,0),  right (0,0,1)
-    // SOUTH: forward (0,0,1),  right (-1,0,0)
-    // WEST:  forward (-1,0,0), right (0,0,-1)
+    // forward + right (XZ-plane)
     switch(facing){
-      case "NORTH": return { f:{x:0,y:0,z:-1}, r:{x:1,y:0,z:0} };
-      case "EAST":  return { f:{x:1,y:0,z:0},  r:{x:0,y:0,z:1} };
-      case "SOUTH": return { f:{x:0,y:0,z:1},  r:{x:-1,y:0,z:0} };
-      case "WEST":  return { f:{x:-1,y:0,z:0}, r:{x:0,y:0,z:-1} };
-      default:      return { f:{x:0,y:0,z:-1}, r:{x:1,y:0,z:0} };
+      case "NORTH": return { f:{x:0,z:-1}, r:{x:1,z:0} };
+      case "EAST":  return { f:{x:1,z:0},  r:{x:0,z:1} };
+      case "SOUTH": return { f:{x:0,z:1},  r:{x:-1,z:0} };
+      case "WEST":  return { f:{x:-1,z:0}, r:{x:0,z:-1} };
+      default:      return { f:{x:0,z:-1}, r:{x:1,z:0} };
     }
   }
 
-  function projectileLibFactor(){
-    return (document.getElementById("plib").value === "YES") ? 2.0 : 1.0;
-  }
+  function projectileLibFactorCannon() { return ($("plib").value === "YES") ? 2.0 : 1.0; }
+  function projectileLibFactorRocket() { return ($("plibR").value === "YES") ? 2.0 : 1.0; }
 
-  // Warium-derived muzzle speed formulas (from jar)
+  // Speed models (kept configurable via code — edit here if you change Warium formulas)
   function muzzleSpeedBlocksPerTick(weapon, barrels){
-    const factor = projectileLibFactor();
+    const factor = projectileLibFactorCannon();
     const b = barrels;
-    if (weapon === "ARTILLERY"){
-      // ArtilleryFireScriptProcedure: (3.0 + b/1.25) * factor  (some branch uses 3.2)
-      return (3.0 + (b / 1.25)) * factor;
-    }
-    if (weapon === "BATTLE"){
-      // BCFireScriptProcedure: common branch uses (3.3 + b/1.25) * factor
-      return (3.3 + (b / 1.25)) * factor;
-    }
+    if (weapon === "ARTILLERY") return (3.0 + (b / 1.25)) * factor;
+    if (weapon === "BATTLE")   return (3.3 + (b / 1.25)) * factor;
     return 0;
   }
-
-  // Warium muzzle offset along forward axis (from jar)
   function muzzleOffsetBlocks(weapon, barrels){
     if (weapon === "ARTILLERY") return 2 + barrels;
     if (weapon === "BATTLE")   return 1 + barrels;
     return 0;
   }
 
-  // --- Physics simulation (vanilla-arrow style) ---
-  // Per tick:
-  // 1) x += vx; y += vy
-  // 2) vx *= drag; vy = vy*drag - g
-  function simulateToHorizontal(targetHoriz, targetDy, speed, elevationRad, maxTicks){
+  // --- Cannon physics (vanilla arrow-ish) ---
+  function simulateToHorizontalCannon(targetHoriz, targetDy, speed, elevationRad, maxTicks){
     const g = 0.05;
     const drag = 0.99;
 
@@ -228,28 +569,22 @@
     let vy = speed * Math.sin(elevationRad);
     let x = 0.0, y = 0.0;
 
-    // best around crossing
     let bestAbs = Infinity, bestSigned = 0.0, bestTick = 0;
 
     for (let t=0; t<maxTicks; t++){
-      x += vx;
-      y += vy;
+      x += vx; y += vy;
 
       const dx = targetHoriz - x;
       if (Math.abs(dx) < 1.0){
         const missSigned = y - targetDy;
         const missAbs = Math.abs(missSigned);
-        if (missAbs < bestAbs){
-          bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1;
-        }
+        if (missAbs < bestAbs){ bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1; }
       }
 
       if (x >= targetHoriz){
         const missSigned = y - targetDy;
         const missAbs = Math.abs(missSigned);
-        if (missAbs < bestAbs){
-          bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1;
-        }
+        if (missAbs < bestAbs){ bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1; }
         return { reached:true, missSigned:bestSigned, missAbs:bestAbs, ticks:bestTick };
       }
 
@@ -259,59 +594,36 @@
     return { reached:false, missSigned:bestSigned, missAbs:bestAbs, ticks:bestTick };
   }
 
-  // Solve for elevation angle theta (true elevation above horizontal)
-  function solveElevation(targetHoriz, targetDy, speed, maxTicks, tol){
-    const lo = 0.1 * DEG;
-    const hi = 89.0 * DEG;
-
-    const sLo = simulateToHorizontal(targetHoriz, targetDy, speed, lo, maxTicks);
-    const sHi = simulateToHorizontal(targetHoriz, targetDy, speed, hi, maxTicks);
-
-    // No solution classification using signs
-    // missSigned > 0 means shot is ABOVE target at crossing; <0 means BELOW.
-    if (sLo.reached && sHi.reached){
-      if (sLo.missSigned > 0 && sHi.missSigned > 0){
-        return { ok:false, reason:"Too close / too high: even the flattest shot is still above target at that distance.", best:sLo };
-      }
-      if (sLo.missSigned < 0 && sHi.missSigned < 0){
-        return { ok:false, reason:"Too far / too low: even the highest lob is still below target at that distance.", best:sHi };
-      }
-    }
+  function solveElevationCannon(targetHoriz, targetDy, speed, maxTicks, tol, arcPref, highArcMinDeg){
+    const minDeg = (arcPref === "HIGH") ? Math.min(89.0, Math.max(0.1, highArcMinDeg)) : 0.1;
+    let lo = minDeg * DEG;
+    let hi = 89.0 * DEG;
 
     let best = null;
     let a = lo, b = hi;
 
-    for (let i=0; i<45; i++){
+    for (let i=0; i<52; i++){
       const mid = 0.5*(a+b);
-      const s = simulateToHorizontal(targetHoriz, targetDy, speed, mid, maxTicks);
+      const s = simulateToHorizontalCannon(targetHoriz, targetDy, speed, mid, maxTicks);
 
       if (!best || s.missAbs < best.missAbs) best = { theta:mid, ...s };
-
       if (s.reached && s.missAbs <= tol) return { ok:true, theta:mid, sample:s };
 
-      // Binary search by sign (only reliable if reached)
       if (s.reached){
         if (s.missSigned > 0) b = mid; else a = mid;
       } else {
-        // If we didn't reach horiz, increase angle? Not necessarily; but usually more time -> higher angle reduces horiz.
-        // We'll just shrink toward lower angle to preserve horiz reach.
+        // didn't reach horiz → reduce angle (more horiz speed)
         b = mid;
       }
     }
 
-    if (!best) return { ok:false, reason:"No solution found.", best:null };
-    return {
-      ok: best.reached && best.missAbs <= tol,
-      theta: best.theta,
-      sample: best,
-      reason: best.reached ? `Best miss ${best.missAbs.toFixed(2)} blocks (over tolerance).` : "Projectile did not reach target distance within max ticks."
-    };
+    return best
+      ? { ok:false, theta: best.theta, sample: best, reason: best.reached ? `Best miss ${best.missAbs.toFixed(2)} blocks (over tolerance).` : "Projectile did not reach target distance within max ticks." }
+      : { ok:false, reason:"No solution found." };
   }
 
-  // Convert true elevation theta to Warium “Pitch degrees” given yaw degrees
-  // Warium direction uses (forward=1, lateral=tan(yaw), vertical=tan(pitch)).
-  // That causes: tan(elevation) = tan(pitch) / sqrt(1 + tan(yaw)^2)
-  // => tan(pitch) = tan(elevation) * sqrt(1 + tan(yaw)^2)
+  // Warium cannon encoding: direction uses (forward=1, lateral=tan(yaw), vertical=tan(pitch)).
+  // tan(elevation) = tan(pitch) / sqrt(1 + tan(yaw)^2)  =>  tan(pitch)=tan(elevation)*sqrt(1+tan(yaw)^2)
   function elevationToWariumPitchDeg(thetaRad, yawDeg){
     const yawTan = Math.tan(yawDeg * DEG);
     const scale = Math.sqrt(1 + yawTan*yawTan);
@@ -319,13 +631,9 @@
     return Math.atan(pitchTan) / DEG;
   }
 
-  // Warium BE tag mapping for yaw (based on AimerProcedureProcedure sign logic)
   function yawToTags(yawDeg, facing){
     const yawTan = Math.tan(yawDeg * DEG);
     const sign = (facing === "NORTH" || facing === "EAST") ? 1.0 : -1.0;
-
-    // If cannon faces N/S (stepX==0) => store X = tan(yaw)*sign, Z = 0
-    // If cannon faces E/W (stepZ==0) => store Z = tan(yaw)*sign, X = 0
     if (facing === "NORTH" || facing === "SOUTH"){
       return { X: yawTan * sign, Z: 0.0 };
     } else {
@@ -333,39 +641,113 @@
     }
   }
 
-  // --- UI Wiring ---
-  const statusEl = document.getElementById("status");
-  const resultEl = document.getElementById("result");
-  const copyEl = document.getElementById("copy");
+  // --- Large rocket physics (drag+gravity, then thrust scaling for boostTicks) ---
+  function simulateLargeRocketToHorizontal(targetHoriz, targetDy, speed, elevationRad, maxTicks, projLibFactor, boostTicks, boostPerTick){
+    const g = 0.05;
+    const drag = 0.99;
+    const thrustMul = 1.0 + boostPerTick * projLibFactor;
 
-  function getNum(id){ return Number(document.getElementById(id).value); }
+    let vx = speed * Math.cos(elevationRad);
+    let vy = speed * Math.sin(elevationRad);
+    let x = 0.0, y = 0.0;
 
-  function setBarrelModeUI(){
-    const mode = document.getElementById("barrelMode").value;
-    document.getElementById("barrelFixedRow").style.display = (mode === "FIXED") ? "flex" : "none";
-    document.getElementById("barrelSearchRow").style.display = (mode === "SEARCH") ? "flex" : "none";
+    let bestAbs = Infinity, bestSigned = 0.0, bestTick = 0;
+
+    for (let t=0; t<maxTicks; t++){
+      x += vx; y += vy;
+
+      const dx = targetHoriz - x;
+      if (Math.abs(dx) < 1.0){
+        const missSigned = y - targetDy;
+        const missAbs = Math.abs(missSigned);
+        if (missAbs < bestAbs){ bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1; }
+      }
+
+      if (x >= targetHoriz){
+        const missSigned = y - targetDy;
+        const missAbs = Math.abs(missSigned);
+        if (missAbs < bestAbs){ bestAbs = missAbs; bestSigned = missSigned; bestTick = t+1; }
+        return { reached:true, missSigned:bestSigned, missAbs:bestAbs, ticks:bestTick };
+      }
+
+      vx *= drag;
+      vy = (vy * drag) - g;
+
+      if ((t+1) <= boostTicks){
+        vx *= thrustMul;
+        vy *= thrustMul;
+      }
+    }
+    return { reached:false, missSigned:bestSigned, missAbs:bestAbs, ticks:bestTick };
   }
-  document.getElementById("barrelMode").addEventListener("change", setBarrelModeUI);
+
+  function solveElevationLargeRocket(targetHoriz, targetDy, speed, maxTicks, tol, projLibFactor, boostTicks, boostPerTick){
+    let lo = 0.1 * DEG;
+    let hi = 89.0 * DEG;
+
+    let best = null;
+    let a = lo, b = hi;
+
+    for (let i=0; i<64; i++){
+      const mid = 0.5*(a+b);
+      const s = simulateLargeRocketToHorizontal(targetHoriz, targetDy, speed, mid, maxTicks, projLibFactor, boostTicks, boostPerTick);
+
+      if (!best || s.missAbs < best.missAbs) best = { theta:mid, ...s };
+      if (s.reached && s.missAbs <= tol) return { ok:true, theta:mid, sample:s };
+
+      if (s.reached){
+        if (s.missSigned > 0) b = mid; else a = mid;
+      } else {
+        b = mid;
+      }
+    }
+
+    return best
+      ? { ok:false, theta: best.theta, sample: best, reason: best.reached ? `Best miss ${best.missAbs.toFixed(2)} blocks (over tolerance).` : "Rocket did not reach target distance within max ticks." }
+      : { ok:false, reason:"No solution found." };
+  }
+
+  // --- UI toggles ---
+  function setWeaponUI(){
+    const weapon = $("weapon").value;
+    const isCannon = (weapon === "ARTILLERY" || weapon === "BATTLE");
+    $("cannonWrap").style.display = isCannon ? "block" : "none";
+    $("rocketWrap").style.display = (weapon === "LARGE_ROCKET") ? "block" : "none";
+  }
+  function setBarrelModeUI(){
+    const mode = $("barrelMode").value;
+    $("barrelFixedRow").style.display = (mode === "FIXED") ? "grid" : "none";
+    $("barrelSearchRow").style.display = (mode === "SEARCH") ? "grid" : "none";
+  }
+
+  $("weapon").addEventListener("change", () => { setWeaponUI(); });
+  $("barrelMode").addEventListener("change", () => { setBarrelModeUI(); });
+
+  setWeaponUI();
   setBarrelModeUI();
 
-  document.getElementById("swap").addEventListener("click", () => {
-    const sx = document.getElementById("sx").value;
-    const sy = document.getElementById("sy").value;
-    const sz = document.getElementById("sz").value;
-    document.getElementById("sx").value = document.getElementById("tx").value;
-    document.getElementById("sy").value = document.getElementById("ty").value;
-    document.getElementById("sz").value = document.getElementById("tz").value;
-    document.getElementById("tx").value = sx;
-    document.getElementById("ty").value = sy;
-    document.getElementById("tz").value = sz;
+  // --- actions ---
+  $("swap").addEventListener("click", () => {
+    const sx = $("sx").value, sy = $("sy").value, sz = $("sz").value;
+    $("sx").value = $("tx").value; $("sy").value = $("ty").value; $("sz").value = $("tz").value;
+    $("tx").value = sx; $("ty").value = sy; $("tz").value = sz;
   });
 
-  function computeOnce(weapon, facing, shooter, target, barrels, useMuzzleOffset, tol, maxTicks){
-    // Apply muzzle offset if shooter is breech
-    let sx = shooter.x, sy = shooter.y, sz = shooter.z;
+  function setOutputs(statusText, resultText, copyText){
+    $("status").innerHTML = statusText;
+    $("result").textContent = resultText || "";
+    $("copy").value = copyText || "";
+  }
+
+  function fmt(n, d=3){ return Number.isFinite(n) ? n.toFixed(d) : "NaN"; }
+  function fmt2(n){ return Number.isFinite(n) ? n.toFixed(2) : "NaN"; }
+
+  function computeCannonOnce(weapon, facing, shooter, target, barrels, coordsAre, tol, maxTicks, arcPref, highArcMinDeg){
     const basis = basisFromFacing(facing);
 
-    if (useMuzzleOffset){
+    // muzzle position if shooter coords represent breech
+    let sx = shooter.x, sy = shooter.y, sz = shooter.z;
+    if (coordsAre === "BREECH"){
       const off = muzzleOffsetBlocks(weapon, barrels);
       sx += basis.f.x * off + 0.5;
       sy += 0.5;
@@ -376,51 +758,54 @@
     const dy = target.y - sy;
     const dz = target.z - sz;
 
-    // Local distances
+    // local forward/right distances
     const forwardDist = dx*basis.f.x + dz*basis.f.z;
     const rightDist   = dx*basis.r.x + dz*basis.r.z;
 
-    // If behind the cannon, Warium yaw would go past 90 and tan() blows up.
+    const worldYaw = computeMinecraftYawDeg(dx, dz);
+
     if (forwardDist <= 0.001){
-      return { ok:false, reason:"Target is behind or at/behind the breech relative to cannon facing (forwardDist ≤ 0).", details:{ forwardDist, rightDist } };
+      return { ok:false, reason:"Target is behind (or too close behind) relative to cannon facing.", worldYaw };
     }
 
-    const yawDeg = Math.atan2(rightDist, forwardDist) / DEG;
-    const horiz = Math.sqrt(dx*dx + dz*dz);
+    // Aimer yaw is lateral angle relative to cannon forward axis
+    const yawAimerDeg = Math.atan2(rightDist, forwardDist) / DEG;
 
+    const horiz = Math.hypot(dx, dz);
     const speed = muzzleSpeedBlocksPerTick(weapon, barrels);
 
-    const elev = solveElevation(horiz, dy, speed, maxTicks, tol);
+    const elev = solveElevationCannon(horiz, dy, speed, maxTicks, tol, arcPref, highArcMinDeg);
     if (!elev.ok){
-      const best = elev.sample;
-      const pitchDegBest = best && best.theta ? elevationToWariumPitchDeg(best.theta, yawDeg) : NaN;
+      const be = elev.sample ? elev.sample : null;
+      let pitchAimerDeg = NaN;
+      let pitchTag = NaN;
+      let xTag = NaN, zTag = NaN;
+      if (be && Number.isFinite(elev.theta)){
+        pitchAimerDeg = elevationToWariumPitchDeg(elev.theta, yawAimerDeg);
+        pitchTag = Math.tan(pitchAimerDeg * DEG);
+        const yz = yawToTags(yawAimerDeg, facing);
+        xTag = yz.X; zTag = yz.Z;
+      }
       return {
         ok:false,
-        reason:elev.reason || "Unreachable.",
-        bestEffort: best ? {
-          yawDeg,
-          elevationDeg: best.theta/DEG,
-          pitchDeg: pitchDegBest,
-          miss: best.missAbs,
-          tofTicks: best.ticks,
-          speed,
-          horiz,
-          dy
+        reason: elev.reason || "Unreachable.",
+        worldYaw,
+        bestEffort: be ? {
+          yawAimerDeg, pitchAimerDeg, pitchTag, xTag, zTag,
+          miss: be.missAbs, tofTicks: be.ticks, speed, horiz, dy
         } : null
       };
     }
 
-    const theta = elev.theta; // true elevation
-    const pitchDeg = elevationToWariumPitchDeg(theta, yawDeg);
-
-    const pitchTag = Math.tan(pitchDeg * DEG);
-    const yz = yawToTags(yawDeg, facing);
+    const pitchAimerDeg = elevationToWariumPitchDeg(elev.theta, yawAimerDeg);
+    const pitchTag = Math.tan(pitchAimerDeg * DEG);
+    const yz = yawToTags(yawAimerDeg, facing);
 
     return {
       ok:true,
-      yawDeg,
-      elevationDeg: theta/DEG,
-      pitchDeg,
+      worldYaw,
+      yawAimerDeg,
+      pitchAimerDeg,
       pitchTag,
       xTag: yz.X,
       zTag: yz.Z,
@@ -432,137 +817,272 @@
     };
   }
 
-  document.getElementById("compute").addEventListener("click", () => {
-    const weapon = document.getElementById("weapon").value;
-    const facing = document.getElementById("facing").value;
-    const tol = getNum("tol");
+  function computeRocketOnce(shooter, target, tol, maxTicks){
+    const dx = target.x - shooter.x;
+    const dy = target.y - shooter.y;
+    const dz = target.z - shooter.z;
+
+    const worldYaw = computeMinecraftYawDeg(dx, dz);
+    const horiz = Math.hypot(dx, dz);
+
+    const ori = $("rocketOri").value;
+    const verticalFactor = Math.max(0.05, Math.min(1.0, getNum("rVerticalHorizFactor")));
+    const horizEffective = (ori === "VERTICAL") ? (horiz / verticalFactor) : horiz;
+
+    const projLib = projectileLibFactorRocket();
+    const speed = Math.max(0.01, getNum("rInitSpeed"));
+    const boostTicks = Math.max(0, Math.floor(getNum("rBoostTicks")));
+    const boostPerTick = Math.max(0, getNum("rBoostPerTick"));
+
+    const elev = solveElevationLargeRocket(horizEffective, dy, speed, maxTicks, tol, projLib, boostTicks, boostPerTick);
+    if (!elev.ok){
+      const be = elev.sample ? elev.sample : null;
+      const pitchDeg = Number.isFinite(elev.theta) ? -(elev.theta / DEG) : NaN; // MC pitch (neg up)
+      return {
+        ok:false,
+        reason: elev.reason || "Unreachable.",
+        bestEffort: be ? { worldYaw, pitchDeg, miss: be.missAbs, tofTicks: be.ticks, speed, horiz, dy, ori, verticalFactor } : null
+      };
+    }
+
+    const pitchDeg = -(elev.theta / DEG);
+    return {
+      ok:true,
+      worldYaw,
+      pitchDeg,
+      miss: elev.sample.missAbs,
+      tofTicks: elev.sample.ticks,
+      speed,
+      horiz,
+      dy,
+      ori,
+      verticalFactor
+    };
+  }
+
+  function renderCompute(){
+    const weapon = $("weapon").value;
+    const tol = Math.max(0.0001, getNum("tol"));
     const maxTicks = Math.max(50, Math.floor(getNum("maxt")));
 
     const shooter = { x:getNum("sx"), y:getNum("sy"), z:getNum("sz") };
     const target  = { x:getNum("tx"), y:getNum("ty"), z:getNum("tz") };
 
-    statusEl.textContent = "";
-    resultEl.textContent = "";
-    copyEl.value = "";
+    if (weapon === "LARGE_ROCKET"){
+      const sol = computeRocketOnce(shooter, target, tol, maxTicks);
+      if (!sol.ok){
+        const be = sol.bestEffort;
+        const status =
+          `<span class="bad">UNREACHABLE</span>\n${sol.reason}\n`;
+        const result = be ? (
+          `Best effort (Large Rocket)\n` +
+          `World yaw:   ${fmt(be.worldYaw,3)}°\n` +
+          `Pitch:       ${fmt(be.pitchDeg,3)}°  (MC pitch; negative=up)\n` +
+          `Miss:        ${fmt2(be.miss)} blocks\n` +
+          `TOF:         ${be.tofTicks} ticks (${(be.tofTicks/20).toFixed(2)}s)\n` +
+          `Horiz:       ${fmt2(be.horiz)} blocks   ΔY: ${fmt2(be.dy)}\n` +
+          `Orientation: ${be.ori}   VerticalFactor: ${fmt(be.verticalFactor,2)}\n` +
+          `InitSpeed:   ${fmt(be.speed,3)} blocks/tick\n`
+        ) : "";
+        const copy =
+          `UNREACHABLE (Large Rocket)\n` +
+          (be ? `Yaw=${fmt(be.worldYaw,3)} Pitch=${fmt(be.pitchDeg,3)} Miss=${fmt2(be.miss)} TOF=${be.tofTicks}t\n` : "");
+        setOutputs(status, result, copy);
+      } else {
+        const status =
+          `<span class="ok">REACHABLE</span>\nWithin tolerance (≤ ${tol.toFixed(2)}).\n`;
+        const result =
+          `Large Rocket\n` +
+          `World yaw:   ${fmt(sol.worldYaw,3)}°\n` +
+          `Pitch:       ${fmt(sol.pitchDeg,3)}°  (MC pitch; negative=up)\n` +
+          `Miss:        ${fmt2(sol.miss)} blocks\n` +
+          `TOF:         ${sol.tofTicks} ticks (${(sol.tofTicks/20).toFixed(2)}s)\n` +
+          `Horiz:       ${fmt2(sol.horiz)} blocks   ΔY: ${fmt2(sol.dy)}\n` +
+          `Orientation: ${sol.ori}   VerticalFactor: ${fmt(sol.verticalFactor,2)}\n` +
+          `InitSpeed:   ${fmt(sol.speed,3)} blocks/tick\n`;
+        const copy =
+          `REACHABLE (Large Rocket)\n` +
+          `Yaw=${fmt(sol.worldYaw,3)} Pitch=${fmt(sol.pitchDeg,3)} Miss=${fmt2(sol.miss)} TOF=${sol.tofTicks}t\n` +
+          `Ori=${sol.ori} VerticalFactor=${fmt(sol.verticalFactor,2)} InitSpeed=${fmt(sol.speed,3)}\n`;
+        setOutputs(status, result, copy);
+      }
+      return;
+    }
 
-    const mode = document.getElementById("barrelMode").value;
+    // Cannons
+    const facing = $("facing").value;
+    const arcPref = $("arcPref").value;
+    const highArcMinDeg = getNum("highArcMinDeg");
 
-    if (mode === "FIXED"){
+    const barrelMode = $("barrelMode").value;
+
+    if (barrelMode === "FIXED"){
       const barrels = Math.max(0, Math.floor(getNum("barrels")));
-      const useMuzzle = (document.getElementById("useMuzzle").value === "YES");
+      const coordsAre = $("coordsAre").value;
 
-      const sol = computeOnce(weapon, facing, shooter, target, barrels, useMuzzle, tol, maxTicks);
+      const sol = computeCannonOnce(weapon, facing, shooter, target, barrels, coordsAre, tol, maxTicks, arcPref, highArcMinDeg);
 
       if (!sol.ok){
-        statusEl.innerHTML = `<span class="bad">UNREACHABLE</span>\n${sol.reason}\n`;
-        if (sol.bestEffort){
-          const b = sol.bestEffort;
-          resultEl.textContent =
-            `Best effort:\n` +
-            `  Yaw (Aimer):   ${b.yawDeg.toFixed(3)}°\n` +
-            `  Pitch (Aimer): ${b.pitchDeg.toFixed(3)}°\n` +
-            `  Miss:          ${b.miss.toFixed(2)} blocks\n` +
-            `  TOF:           ${b.tofTicks.toFixed(0)} ticks (${(b.tofTicks/20).toFixed(2)}s)\n` +
-            `  Speed:         ${b.speed.toFixed(3)} blocks/tick\n` +
-            `  Horizontal:    ${b.horiz.toFixed(2)} blocks\n` +
-            `  Vertical ΔY:   ${b.dy.toFixed(2)} blocks\n`;
-          copyEl.value =
-            `UNREACHABLE (best effort)\n` +
-            `Yaw=${b.yawDeg.toFixed(3)} Pitch=${b.pitchDeg.toFixed(3)} ` +
-            `Miss=${b.miss.toFixed(2)} Speed=${b.speed.toFixed(3)} TOF=${b.tofTicks.toFixed(0)}t\n`;
-        }
-        return;
+        const be = sol.bestEffort;
+        const status =
+          `<span class="bad">UNREACHABLE</span>\n${sol.reason}\n`;
+        const result = be ? (
+          `Best effort (${weapon})\n` +
+          `World yaw:   ${fmt(sol.worldYaw,3)}°\n` +
+          `Aimer yaw:   ${fmt(be.yawAimerDeg,3)}° (relative to cannon forward)\n` +
+          `Aimer pitch: ${fmt(be.pitchAimerDeg,3)}° (relative; MC pitch = -this)\n` +
+          `Miss:        ${fmt2(be.miss)} blocks\n` +
+          `TOF:         ${be.tofTicks} ticks (${(be.tofTicks/20).toFixed(2)}s)\n` +
+          `Speed:       ${fmt(be.speed,3)} blocks/tick\n` +
+          `Horiz:       ${fmt2(be.horiz)} blocks   ΔY: ${fmt2(be.dy)}\n` +
+          `Tags: PitchTag=${fmt(be.pitchTag,6)} XTag=${fmt(be.xTag,6)} ZTag=${fmt(be.zTag,6)}\n`
+        ) : "";
+        const copy =
+          `UNREACHABLE (${weapon})\n` +
+          `WorldYaw=${fmt(sol.worldYaw,3)} Facing=${facing} Barrels=${barrels}\n` +
+          (be ? `AimerYaw=${fmt(be.yawAimerDeg,3)} AimerPitch=${fmt(be.pitchAimerDeg,3)} Miss=${fmt2(be.miss)} TOF=${be.tofTicks}t\n` : "");
+        setOutputs(status, result, copy);
+      } else {
+        const status =
+          `<span class="ok">REACHABLE</span>\nWithin tolerance (≤ ${tol.toFixed(2)}).\n` +
+          `${arcPref === "HIGH" ? `<span class="warn">High arc</span> selected.\n` : ""}`;
+        const result =
+          `${weapon} Cannon\n` +
+          `World yaw:   ${fmt(sol.worldYaw,3)}°\n` +
+          `Aimer yaw:   ${fmt(sol.yawAimerDeg,3)}° (relative to cannon forward)\n` +
+          `Aimer pitch: ${fmt(sol.pitchAimerDeg,3)}° (relative; MC pitch = -this)\n` +
+          `\nWarium tag equivalents:\n` +
+          `PitchTag = tan(AimerPitch) = ${fmt(sol.pitchTag,6)}\n` +
+          `XTag = ${fmt(sol.xTag,6)}\n` +
+          `ZTag = ${fmt(sol.zTag,6)}\n` +
+          `\nBallistics:\n` +
+          `Barrels: ${barrels}\n` +
+          `Speed:   ${fmt(sol.speed,3)} blocks/tick\n` +
+          `Miss:    ${fmt2(sol.miss)} blocks\n` +
+          `TOF:     ${sol.tofTicks} ticks (${(sol.tofTicks/20).toFixed(2)}s)\n` +
+          `Horiz:   ${fmt2(sol.horiz)} blocks   ΔY: ${fmt2(sol.dy)}\n` +
+          `Arc:     ${arcPref}${arcPref==="HIGH" ? ` (min elev ${highArcMinDeg.toFixed(1)}°)` : ""}\n`;
+        const copy =
+          `REACHABLE (${weapon})\n` +
+          `Facing=${facing} Barrels=${barrels} Arc=${arcPref}\n` +
+          `AimerYaw=${fmt(sol.yawAimerDeg,3)} AimerPitch=${fmt(sol.pitchAimerDeg,3)}\n` +
+          `PitchTag=${fmt(sol.pitchTag,6)} XTag=${fmt(sol.xTag,6)} ZTag=${fmt(sol.zTag,6)}\n` +
+          `Speed=${fmt(sol.speed,3)} TOF=${sol.tofTicks}t Miss=${fmt2(sol.miss)} WorldYaw=${fmt(sol.worldYaw,3)}\n`;
+        setOutputs(status, result, copy);
       }
-
-      statusEl.innerHTML = `<span class="ok">REACHABLE</span>\nWithin tolerance.\n`;
-      resultEl.textContent =
-        `Yaw (Aimer):   ${sol.yawDeg.toFixed(3)}°\n` +
-        `Pitch (Aimer): ${sol.pitchDeg.toFixed(3)}°  (Warium stores tan(Pitch))\n` +
-        `\nWarium BlockEntity tags:\n` +
-        `  PitchTag = tan(PitchDeg) = ${sol.pitchTag.toFixed(6)}\n` +
-        `  XTag = ${sol.xTag.toFixed(6)}\n` +
-        `  ZTag = ${sol.zTag.toFixed(6)}\n` +
-        `\nBallistics:\n` +
-        `  Barrels:  ${barrels}\n` +
-        `  Speed:    ${sol.speed.toFixed(3)} blocks/tick\n` +
-        `  Miss:     ${sol.miss.toFixed(2)} blocks (≤ ${tol.toFixed(2)})\n` +
-        `  TOF:      ${sol.tofTicks.toFixed(0)} ticks (${(sol.tofTicks/20).toFixed(2)}s)\n` +
-        `  Horiz:    ${sol.horiz.toFixed(2)} blocks\n` +
-        `  ΔY:       ${sol.dy.toFixed(2)} blocks\n`;
-
-      copyEl.value =
-        `REACHABLE\n` +
-        `Yaw=${sol.yawDeg.toFixed(3)} Pitch=${sol.pitchDeg.toFixed(3)}\n` +
-        `PitchTag=${sol.pitchTag.toFixed(6)} XTag=${sol.xTag.toFixed(6)} ZTag=${sol.zTag.toFixed(6)}\n` +
-        `Barrels=${barrels} Speed=${sol.speed.toFixed(3)} TOF=${sol.tofTicks.toFixed(0)}t Miss=${sol.miss.toFixed(2)}\n`;
-
       return;
     }
 
-    // SEARCH mode
+    // SEARCH barrels
+    const coordsAre = $("coordsAre2").value;
     const maxB = Math.max(1, Math.floor(getNum("maxBarrels")));
-    const useMuzzle = (document.getElementById("useMuzzle2").value === "YES");
 
-    let best = null;
+    let bestOk = null;
+    let bestEff = null;
+
     for (let b=1; b<=maxB; b++){
-      const sol = computeOnce(weapon, facing, shooter, target, b, useMuzzle, tol, maxTicks);
+      const sol = computeCannonOnce(weapon, facing, shooter, target, b, coordsAre, tol, maxTicks, arcPref, highArcMinDeg);
       if (sol.ok){
-        best = { barrels:b, sol };
-        break; // minimum barrels found
+        bestOk = { barrels:b, sol };
+        break;
       }
-      // track best effort
       if (sol.bestEffort){
         const be = sol.bestEffort;
-        if (!best || (best.sol && be.miss < best.sol.miss)){
-          best = { barrels:b, sol:be, bestEffort:true };
+        if (!bestEff || be.miss < bestEff.be.miss){
+          bestEff = { barrels:b, worldYaw: sol.worldYaw, be };
         }
       }
     }
 
-    if (!best){
-      statusEl.innerHTML = `<span class="bad">UNREACHABLE</span>\nNo solution found up to ${maxB} barrels.\n`;
+    if (!bestOk){
+      const status = `<span class="bad">UNREACHABLE</span>\nNo solution within tolerance up to ${maxB} barrels.\n`;
+      let result = "";
+      let copy = `UNREACHABLE (${weapon})\nFacing=${facing} Arc=${arcPref} MaxBarrels=${maxB}\n`;
+
+      if (bestEff){
+        const be = bestEff.be;
+        result =
+          `Best effort (barrels=${bestEff.barrels})\n` +
+          `World yaw:   ${fmt(bestEff.worldYaw,3)}°\n` +
+          `Aimer yaw:   ${fmt(be.yawAimerDeg,3)}°\n` +
+          `Aimer pitch: ${fmt(be.pitchAimerDeg,3)}°\n` +
+          `Miss:        ${fmt2(be.miss)} blocks\n` +
+          `Speed:       ${fmt(be.speed,3)} blocks/tick\n`;
+        copy += `BestEffortBarrels=${bestEff.barrels} AimerYaw=${fmt(be.yawAimerDeg,3)} AimerPitch=${fmt(be.pitchAimerDeg,3)} Miss=${fmt2(be.miss)}\n`;
+      }
+
+      setOutputs(status, result, copy);
       return;
     }
 
-    if (best.bestEffort){
-      statusEl.innerHTML = `<span class="bad">UNREACHABLE</span>\nNo solution within tolerance up to ${maxB} barrels.\n`;
-      const b = best.sol;
-      resultEl.textContent =
-        `Best effort (barrels=${best.barrels}):\n` +
-        `  Yaw (Aimer):   ${b.yawDeg.toFixed(3)}°\n` +
-        `  Pitch (Aimer): ${b.pitchDeg.toFixed(3)}°\n` +
-        `  Miss:          ${b.miss.toFixed(2)} blocks\n` +
-        `  Speed:         ${b.speed.toFixed(3)} blocks/tick\n`;
-      copyEl.value =
-        `UNREACHABLE (best effort)\n` +
-        `Barrels=${best.barrels} Yaw=${b.yawDeg.toFixed(3)} Pitch=${b.pitchDeg.toFixed(3)} Miss=${b.miss.toFixed(2)} Speed=${b.speed.toFixed(3)}\n`;
-      return;
-    }
-
-    const sol = best.sol;
-    statusEl.innerHTML = `<span class="ok">REACHABLE</span>\nMinimum barrels found.\n`;
-
-    // derive tags for output (SEARCH ok path always returns full sol)
-    resultEl.textContent =
-      `Yaw (Aimer):   ${sol.yawDeg.toFixed(3)}°\n` +
-      `Pitch (Aimer): ${sol.pitchDeg.toFixed(3)}°\n` +
-      `\nWarium BlockEntity tags:\n` +
-      `  PitchTag = ${sol.pitchTag.toFixed(6)}\n` +
-      `  XTag = ${sol.xTag.toFixed(6)}\n` +
-      `  ZTag = ${sol.zTag.toFixed(6)}\n` +
+    const sol = bestOk.sol;
+    const status =
+      `<span class="ok">REACHABLE</span>\nMinimum barrels found within tolerance.\n` +
+      `${arcPref === "HIGH" ? `<span class="warn">High arc</span> selected.\n` : ""}`;
+    const result =
+      `${weapon} Cannon (min barrels)\n` +
+      `World yaw:   ${fmt(sol.worldYaw,3)}°\n` +
+      `Aimer yaw:   ${fmt(sol.yawAimerDeg,3)}°\n` +
+      `Aimer pitch: ${fmt(sol.pitchAimerDeg,3)}°\n` +
+      `\nWarium tag equivalents:\n` +
+      `PitchTag = ${fmt(sol.pitchTag,6)}\n` +
+      `XTag = ${fmt(sol.xTag,6)}\n` +
+      `ZTag = ${fmt(sol.zTag,6)}\n` +
       `\nBallistics:\n` +
-      `  Barrels needed: ${best.barrels}\n` +
-      `  Speed:          ${sol.speed.toFixed(3)} blocks/tick\n` +
-      `  Miss:           ${sol.miss.toFixed(2)} blocks\n` +
-      `  TOF:            ${sol.tofTicks.toFixed(0)} ticks (${(sol.tofTicks/20).toFixed(2)}s)\n`;
+      `Barrels needed: ${bestOk.barrels}\n` +
+      `Speed:          ${fmt(sol.speed,3)} blocks/tick\n` +
+      `Miss:           ${fmt2(sol.miss)} blocks\n` +
+      `TOF:            ${sol.tofTicks} ticks (${(sol.tofTicks/20).toFixed(2)}s)\n` +
+      `Arc:            ${arcPref}${arcPref==="HIGH" ? ` (min elev ${highArcMinDeg.toFixed(1)}°)` : ""}\n`;
 
-    copyEl.value =
-      `REACHABLE (min barrels)\n` +
-      `Barrels=${best.barrels}\n` +
-      `Yaw=${sol.yawDeg.toFixed(3)} Pitch=${sol.pitchDeg.toFixed(3)}\n` +
-      `PitchTag=${sol.pitchTag.toFixed(6)} XTag=${sol.xTag.toFixed(6)} ZTag=${sol.zTag.toFixed(6)}\n` +
-      `Speed=${sol.speed.toFixed(3)} TOF=${sol.tofTicks.toFixed(0)}t Miss=${sol.miss.toFixed(2)}\n`;
+    const copy =
+      `REACHABLE (${weapon}) (min barrels)\n` +
+      `Facing=${facing} Arc=${arcPref} Barrels=${bestOk.barrels}\n` +
+      `AimerYaw=${fmt(sol.yawAimerDeg,3)} AimerPitch=${fmt(sol.pitchAimerDeg,3)}\n` +
+      `PitchTag=${fmt(sol.pitchTag,6)} XTag=${fmt(sol.xTag,6)} ZTag=${fmt(sol.zTag,6)}\n` +
+      `Speed=${fmt(sol.speed,3)} TOF=${sol.tofTicks}t Miss=${fmt2(sol.miss)} WorldYaw=${fmt(sol.worldYaw,3)}\n`;
+
+    setOutputs(status, result, copy);
+  }
+
+  $("compute").addEventListener("click", () => {
+    renderCompute();
+    $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
   });
+
+  async function copyText(){
+    const txt = $("copy").value || "";
+    if (!txt.trim()) return;
+    try{
+      await navigator.clipboard.writeText(txt);
+      const prev = $("copyBtn").textContent;
+      $("copyBtn").textContent = "Copied ✓";
+      $("copyBtn2").textContent = "Copied ✓";
+      setTimeout(() => { $("copyBtn").textContent = prev; $("copyBtn2").textContent = "Copy text above"; }, 1100);
+    }catch{
+      // fallback: select textarea
+      $("copy").focus();
+      $("copy").select();
+      document.execCommand("copy");
+    }
+  }
+
+  $("copyBtn").addEventListener("click", copyText);
+  $("copyBtn2").addEventListener("click", copyText);
+
+  $("clearBtn").addEventListener("click", () => {
+    setOutputs("", "", "");
+  });
+
+  $("scrollToTop").addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  $("scrollToResults").addEventListener("click", () => {
+    $("resultsCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+})();
 </script>
 </body>
 </html>
