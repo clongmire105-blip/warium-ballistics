@@ -1,5 +1,3 @@
-Here’s the single pastable file (save as index.html) with Mortar added, plus Facing inputs for Mortar and Large Rocket (horizontal + vertical). It keeps the cleaner, mobile-friendly UI and adds mortar-specific defaults that match Warium’s mortar block launch behavior (speed 5.0, spawn offset +0.5,+3.0,+0.5, and the PitchTag = tan(pitch) − 0.5 encoding Warium uses).
-
 <!doctype html>
 <html lang="en">
 <head>
