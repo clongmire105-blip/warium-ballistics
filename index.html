@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Warium Ballistics Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="app-header">
+        <div>
+            <p class="eyebrow">WARIUM 1.3.0</p>
+            <h1>Ballistics Calculator</h1>
+        </div>
+        <div class="runtime-state" id="runtime-state">RPL 2.1.1 profile</div>
+    </header>
+
+    <main class="workspace">
+        <aside class="control-panel" aria-label="Shot parameters">
+            <form id="calculator-form">
+                <section class="form-section">
+                    <h2>Weapon</h2>
+                    <label>
+                        Platform
+                        <select id="weapon" name="weapon"></select>
+                    </label>
+                    <label>
+                        Ammunition
+                        <select id="shell" name="shell"></select>
+                    </label>
+                    <label id="barrels-row">
+                        Barrel blocks
+                        <input id="barrels" name="barrels" type="number" min="1" max="11" step="1" value="4">
+                    </label>
+                </section>
+
+                <section class="form-section">
+                    <h2>Projectile Runtime</h2>
+                    <div class="segmented" role="radiogroup" aria-label="Projectile runtime">
+                        <label>
+                            <input type="radio" name="runtime" value="rpl" checked>
+                            <span>RPL installed</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="runtime" value="vanilla">
+                            <span>Warium only</span>
+                        </label>
+                    </div>
+                    <p class="field-note" id="runtime-note"></p>
+                </section>
+
+                <section class="form-section">
+                    <h2>Coordinates</h2>
+                    <label>
+                        Firing coordinate type
+                        <select id="reference-mode" name="referenceMode">
+                            <option value="muzzle">Exact projectile origin</option>
+                            <option value="breech">Weapon block position</option>
+                        </select>
+                    </label>
+                    <fieldset>
+                        <legend>Firing position</legend>
+                        <div class="coordinate-grid">
+                            <label>X<input id="origin-x" name="originX" type="number" step="any" value="0"></label>
+                            <label>Y<input id="origin-y" name="originY" type="number" step="any" value="64"></label>
+                            <label>Z<input id="origin-z" name="originZ" type="number" step="any" value="0"></label>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Target position</legend>
+                        <div class="coordinate-grid">
+                            <label>X<input id="target-x" name="targetX" type="number" step="any" value="200"></label>
+                            <label>Y<input id="target-y" name="targetY" type="number" step="any" value="64"></label>
+                            <label>Z<input id="target-z" name="targetZ" type="number" step="any" value="0"></label>
+                        </div>
+                    </fieldset>
+                    <p class="field-note" id="reference-note">Use the projectile spawn point at the muzzle for maximum accuracy.</p>
+                </section>
+
+                <button class="calculate-button" type="submit">Calculate firing solution</button>
+            </form>
+        </aside>
+
+        <section class="results-panel" aria-live="polite">
+            <div class="shot-summary">
+                <div>
+                    <span>Range</span>
+                    <strong id="summary-range">--</strong>
+                </div>
+                <div>
+                    <span>Height delta</span>
+                    <strong id="summary-height">--</strong>
+                </div>
+                <div>
+                    <span>Launch speed</span>
+                    <strong id="summary-speed">--</strong>
+                </div>
+                <div>
+                    <span>Inaccuracy parameter</span>
+                    <strong id="summary-spread">--</strong>
+                </div>
+            </div>
+
+            <div id="status" class="status-message">Enter a firing position and target to calculate.</div>
+
+            <div id="solution-list" class="solution-list"></div>
+
+            <section class="trajectory-section">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">NOMINAL CENTERLINE</p>
+                        <h2>Trajectory</h2>
+                    </div>
+                    <div class="legend" aria-label="Trajectory legend">
+                        <span><i class="low-key"></i>Low arc</span>
+                        <span><i class="high-key"></i>High arc</span>
+                    </div>
+                </div>
+                <canvas id="trajectory" width="1000" height="400"></canvas>
+            </section>
+
+            <details class="model-details">
+                <summary>Calculation model</summary>
+                <div class="details-grid">
+                    <p><strong>Motion:</strong> Minecraft 1.20.1 AbstractArrow order, with position advanced before 0.99 air drag and 0.05 downward velocity are applied each tick.</p>
+                    <p><strong>RPL:</strong> Warium doubles battle-cannon and artillery launch velocity when Ritchie's Projectile Library is loaded. Mortar launch speed remains 5 blocks/tick.</p>
+                    <p><strong>Mortars:</strong> The displayed mortar pitch is solved through Warium's actual transformed launch vector. A 0-degree mortar setting produces approximately 45 degrees of true elevation when fired on its centerline.</p>
+                    <p><strong>Error:</strong> CEP50 and 90% miss radius use 800 deterministic trials of Minecraft's triangular projectile spread at the selected barrel or mortar inaccuracy.</p>
+                    <p><strong>Coordinates:</strong> One block is treated as one meter. VS local coordinates must be converted to world coordinates.</p>
+                    <p><strong>Limits:</strong> Terrain, collision, vehicle motion, server lag, and mount rotation limits are not modeled. Error figures are statistical estimates, not guarantees for an individual shot.</p>
+                </div>
+            </details>
+        </section>
+    </main>
+
+    <footer>
+        Derived from Warium 1.3.0 and Ritchie's Projectile Library 2.1.1 for Minecraft 1.20.1.
+    </footer>
+
+    <script src="ballistics.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
