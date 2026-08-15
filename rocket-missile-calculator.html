@@ -55,7 +55,11 @@
     .chart-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0d131c; }
     canvas { display: block; width: 100%; height: 315px; }
     .chart-note { color: var(--muted); font-size: .82rem; margin: 9px 2px 0; }
-    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+    .coordinate-section { display: grid; gap: 9px; }
+    .coordinate-section h3 { margin: 0; font-size: .92rem; }
+    .coordinate-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .coordinate-grid label { font-size: .82rem; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-top: 20px; }
     .fact { padding: 13px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--panel) 70%, transparent); }
     .fact:nth-child(2) { border-color: var(--accent-2); }
     .fact:nth-child(3) { border-color: var(--good); }
@@ -66,6 +70,7 @@
     @media (max-width: 720px) {
       main { padding: 24px 14px 36px; }
       .layout { grid-template-columns: 1fr; }
+      .coordinate-grid { grid-template-columns: 1fr; }
       .facts { grid-template-columns: 1fr; }
     }
     @media (max-width: 420px) { .result-grid { grid-template-columns: 1fr; } }
@@ -75,27 +80,66 @@
   <main>
     <header>
       <h1>Warium Ballistics Calculator</h1>
-      <p class="lede">Launch solutions for Peeler rockets, Ordinance rockets, and Fire Spear missiles. Distances and height are in Minecraft blocks.</p>
+      <p class="lede">Launch solutions for rockets, missiles, battle cannons, artillery, and mortars. Enter world coordinates for elevation and Minecraft yaw.</p>
     </header>
 
     <section class="layout" aria-label="Ballistic calculator">
       <form class="panel controls" onsubmit="return false">
-        <h2>Target</h2>
+        <h2>Launch and target</h2>
         <label for="weapon">Projectile
           <select id="weapon">
-            <option value="peeler">Peeler rocket</option>
-            <option value="ordinance">Ordinance rocket</option>
-            <option value="fireSpear">Fire Spear missile</option>
+            <optgroup label="Rockets and missiles">
+              <option value="peeler">Peeler rocket</option>
+              <option value="ordinance">Ordinance rocket</option>
+              <option value="fireSpear">Fire Spear missile</option>
+            </optgroup>
+            <optgroup label="Battle cannons">
+              <option value="battleAp">Battle cannon - AP shell</option>
+              <option value="battleSolid">Battle cannon - Solid shell</option>
+              <option value="battleExplosive">Battle cannon - HE / HEAT / flak / smoke</option>
+            </optgroup>
+            <optgroup label="Artillery cannons">
+              <option value="artillerySolid">Artillery - Solid / AP shell</option>
+              <option value="artilleryExplosive">Artillery - HE / gas / incendiary shell</option>
+            </optgroup>
+            <optgroup label="Mortars">
+              <option value="mortar">Mortar - HE / smoke shell</option>
+            </optgroup>
           </select>
         </label>
-        <label for="distance">Horizontal distance
-          <input id="distance" type="number" min="1" max="1500" step="1" value="250" inputmode="decimal">
-          <small>Launcher-to-target distance, level on the X/Z plane.</small>
+        <label id="barrelRow" for="barrels">Barrel blocks
+          <input id="barrels" type="number" min="1" max="11" step="1" value="4" inputmode="numeric">
+          <small>Used by battle and artillery cannons to calculate launch speed.</small>
         </label>
-        <label for="height">Target height relative to launcher
-          <input id="height" type="number" min="-500" max="500" step="0.5" value="0" inputmode="decimal">
-          <small>Positive = target above the launch point. Negative = below it.</small>
+        <label id="runtimeRow" for="runtime">Projectile runtime
+          <select id="runtime">
+            <option value="rpl">Ritchie's Projectile Library installed (2x cannon velocity)</option>
+            <option value="vanilla">Warium only</option>
+          </select>
         </label>
+        <label for="referenceMode">Firing coordinate type
+          <select id="referenceMode">
+            <option value="muzzle">Exact projectile origin</option>
+            <option value="weapon">Weapon block position</option>
+          </select>
+          <small>Weapon block mode applies Warium's cannon and mortar spawn offsets. Use exact origin for rockets.</small>
+        </label>
+        <section class="coordinate-section" aria-label="Firing position">
+          <h3>Firing position</h3>
+          <div class="coordinate-grid">
+            <label>X<input id="originX" type="number" step="any" value="0" inputmode="decimal"></label>
+            <label>Y<input id="originY" type="number" step="any" value="64" inputmode="decimal"></label>
+            <label>Z<input id="originZ" type="number" step="any" value="0" inputmode="decimal"></label>
+          </div>
+        </section>
+        <section class="coordinate-section" aria-label="Target position">
+          <h3>Target position</h3>
+          <div class="coordinate-grid">
+            <label>X<input id="targetX" type="number" step="any" value="200" inputmode="decimal"></label>
+            <label>Y<input id="targetY" type="number" step="any" value="64" inputmode="decimal"></label>
+            <label>Z<input id="targetZ" type="number" step="any" value="0" inputmode="decimal"></label>
+          </div>
+        </section>
         <div class="weapon-details" id="weaponDetails"></div>
       </form>
 
@@ -103,12 +147,12 @@
         <h2>Aim solution</h2>
         <div class="result-grid">
           <article class="result" id="lowResult">
-            <span class="result-label">Low arc</span>
+            <span class="result-label" id="lowTitle">Low arc</span>
             <strong class="result-value" id="lowAngle">—</strong>
             <span class="result-sub" id="lowInfo">—</span>
           </article>
           <article class="result high" id="highResult">
-            <span class="result-label">High arc</span>
+            <span class="result-label" id="highTitle">High arc</span>
             <strong class="result-value" id="highAngle">—</strong>
             <span class="result-sub" id="highInfo">—</span>
           </article>
@@ -122,51 +166,70 @@
     </section>
 
     <section class="facts" aria-label="Selected projectile data">
-      <div class="fact"><b id="speedLabel">Launch speed</b><span id="speedValue">—</span></div>
-      <div class="fact"><b id="boostLabel">Engine boost</b><span id="boostValue">—</span></div>
-      <div class="fact"><b id="limitLabel">Flight limit</b><span id="limitValue">—</span></div>
+      <div class="fact"><b>Target geometry</b><span id="geometryValue">&mdash;</span></div>
+      <div class="fact"><b>Yaw to target</b><span id="yawValue">&mdash;</span></div>
+      <div class="fact"><b>Launch speed</b><span id="speedValue">&mdash;</span></div>
+      <div class="fact"><b>Selected profile</b><span id="profileValue">&mdash;</span></div>
     </section>
 
-    <p class="footer-note">Model: Warium’s arrow projectile drag (<code>0.99</code>) and gravity (<code>0.05 blocks/tick²</code>) are applied before each rocket’s engine multiplier. Ordinance guided variants begin steering after their startup period, so this calculator intentionally shows their no-lock ballistic path.</p>
+    <p class="footer-note">Model: Warium's arrow projectile drag (<code>0.99</code>) and gravity (<code>0.05 blocks/tick^2</code>) are applied each tick. Guided Ordinance variants begin steering after startup, so its result is intentionally the no-lock ballistic path. Terrain, moving vehicles, and mount rotation limits are not modeled.</p>
   </main>
 
   <script>
-    const PROJECTILES = {
+    const PROFILES = {
       peeler: {
-        name: 'Peeler rocket',
-        speed: 6,
-        boost: 1.01,
-        burn: 60,
-        maxTicks: 1400,
+        kind: 'rocket', name: 'Peeler rocket', speed: 6, boost: 1.01, burn: 60, maxTicks: 1400,
         behavior: 'Armor Peeler launch profile. Its rocket engine boosts velocity for the first 60 ticks.',
-        flight: 'No programmed detonation',
-        precision: 'Launcher inaccuracy: 3'
+        flight: 'No programmed detonation', precision: 'Launcher inaccuracy: 3'
       },
       ordinance: {
-        name: 'Ordinance rocket',
-        speed: 4.5,
-        boost: 1.02,
-        burn: 140,
-        maxTicks: 141,
-        behavior: 'Ordinance core launch profile. No-lock path only: seeker-equipped variants can steer after 10 ticks.',
-        flight: 'Detonates at 7.05 s',
-        precision: 'Launcher inaccuracy: 3'
+        kind: 'rocket', name: 'Ordinance rocket', speed: 4.5, boost: 1.02, burn: 140, maxTicks: 141,
+        behavior: 'No-lock Ordinance profile. Guided variants can steer after their startup period.',
+        flight: 'Self-destructs after 7.05 s', precision: 'Launcher inaccuracy: 3'
       },
       fireSpear: {
-        name: 'Fire Spear missile',
-        speed: 6,
-        boost: 1.01,
-        burn: 70,
-        maxTicks: 1500,
-        behavior: 'Fire Spear hardpoint launch profile. The engine runs ten ticks longer than the Peeler rocket.',
-        flight: 'No programmed detonation',
-        precision: 'Hardpoint inaccuracy: 2'
+        kind: 'rocket', name: 'Fire Spear missile', speed: 6, boost: 1.01, burn: 70, maxTicks: 1500,
+        behavior: 'Fire Spear hardpoint profile. Its engine runs ten ticks longer than a Peeler rocket.',
+        flight: 'No programmed detonation', precision: 'Hardpoint inaccuracy: 2'
+      },
+      battleAp: {
+        kind: 'cannon', name: 'Battle cannon AP shell', baseSpeed: 3.3, usesBarrels: true, maxTicks: 1800,
+        behavior: 'Warium battle cannon AP speed: (3.3 + barrels / 1.25) x runtime multiplier.',
+        flight: 'Ballistic shell', precision: 'Spread: 8 / (barrels x 2)'
+      },
+      battleSolid: {
+        kind: 'cannon', name: 'Battle cannon solid shell', baseSpeed: 3.2, usesBarrels: true, maxTicks: 1800,
+        behavior: 'Warium battle cannon solid speed: (3.2 + barrels / 1.25) x runtime multiplier.',
+        flight: 'Ballistic shell', precision: 'Spread: 8 / (barrels x 2)'
+      },
+      battleExplosive: {
+        kind: 'cannon', name: 'Battle cannon HE / HEAT / flak / smoke shell', baseSpeed: 3.0, usesBarrels: true, maxTicks: 1800,
+        behavior: 'Warium battle cannon explosive speed: (3.0 + barrels / 1.25) x runtime multiplier.',
+        flight: 'Ballistic shell', precision: 'Spread: 10 / (barrels x 2)'
+      },
+      artillerySolid: {
+        kind: 'cannon', name: 'Artillery solid / AP shell', baseSpeed: 3.2, usesBarrels: true, maxTicks: 1800,
+        behavior: 'Warium artillery solid/AP speed: (3.2 + barrels / 1.25) x runtime multiplier.',
+        flight: 'Ballistic shell', precision: 'Spread: 10 / (barrels x 1.5)'
+      },
+      artilleryExplosive: {
+        kind: 'cannon', name: 'Artillery HE / gas / incendiary shell', baseSpeed: 3.0, usesBarrels: true, maxTicks: 1800,
+        behavior: 'Warium artillery explosive speed: (3.0 + barrels / 1.25) x runtime multiplier.',
+        flight: 'Ballistic shell', precision: 'Spread: 14 / (barrels x 1.5)'
+      },
+      mortar: {
+        kind: 'mortar', name: 'Mortar HE / smoke shell', speed: 5, boost: 1, burn: 0, maxTicks: 1800,
+        behavior: 'Fixed 5.0 blocks/tick launch speed. Warium transforms the displayed mortar pitch.',
+        flight: 'Ballistic shell', precision: 'Fixed inaccuracy: 5'
       }
     };
 
     const weapon = document.getElementById('weapon');
-    const distanceInput = document.getElementById('distance');
-    const heightInput = document.getElementById('height');
+    const barrelsInput = document.getElementById('barrels');
+    const runtime = document.getElementById('runtime');
+    const referenceMode = document.getElementById('referenceMode');
+    const barrelRow = document.getElementById('barrelRow');
+    const runtimeRow = document.getElementById('runtimeRow');
     const details = document.getElementById('weaponDetails');
     const canvas = document.getElementById('trajectory');
     const ctx = canvas.getContext('2d');
@@ -175,108 +238,232 @@
     const lowInfo = document.getElementById('lowInfo');
     const highAngle = document.getElementById('highAngle');
     const highInfo = document.getElementById('highInfo');
+    const lowTitle = document.getElementById('lowTitle');
+    const highTitle = document.getElementById('highTitle');
     const lowResult = document.getElementById('lowResult');
     const highResult = document.getElementById('highResult');
+    const coordinateInputs = ['originX', 'originY', 'originZ', 'targetX', 'targetY', 'targetZ']
+      .map(function (id) { return document.getElementById(id); });
 
-    function simulate(profile, degrees) {
-      const radians = degrees * Math.PI / 180;
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function degrees(radians) {
+      return radians * 180 / Math.PI;
+    }
+
+    function radians(degreesValue) {
+      return degreesValue * Math.PI / 180;
+    }
+
+    function normalizeSignedDegrees(value) {
+      let normalized = (value + 180) % 360;
+      if (normalized < 0) normalized += 360;
+      return normalized - 180;
+    }
+
+    function normalizeBearing(value) {
+      let normalized = value % 360;
+      if (normalized < 0) normalized += 360;
+      return normalized;
+    }
+
+    function numberValue(element, label) {
+      const value = Number(element.value);
+      if (!Number.isFinite(value)) throw new Error(label + ' must be a valid number.');
+      return value;
+    }
+
+    function signed(value, digits) {
+      return (value >= 0 ? '+' : '-') + Math.abs(value).toFixed(digits);
+    }
+
+    function cardinalBearing(bearing) {
+      const labels = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west'];
+      return labels[Math.round(bearing / 45) % 8];
+    }
+
+    function getProfile() {
+      const profile = Object.assign({}, PROFILES[weapon.value]);
+      const barrels = clamp(Math.round(numberValue(barrelsInput, 'Barrel blocks')), 1, 11);
+      profile.barrels = barrels;
+      profile.launchOffset = 0;
+
+      if (profile.usesBarrels) {
+        const multiplier = runtime.value === 'rpl' ? 2 : 1;
+        profile.speed = (profile.baseSpeed + barrels / 1.25) * multiplier;
+        profile.launchOffset = referenceMode.value === 'weapon' ? barrels + 1.5 : 0;
+        profile.precision += '; ' + (runtime.value === 'rpl' ? 'RPL multiplier: 2x' : 'Warium-only multiplier: 1x');
+      }
+
+      if (!profile.boost) profile.boost = 1;
+      if (!profile.burn) profile.burn = 0;
+      return profile;
+    }
+
+    function getGeometry(profile) {
+      let originX = numberValue(document.getElementById('originX'), 'Firing X');
+      let originY = numberValue(document.getElementById('originY'), 'Firing Y');
+      let originZ = numberValue(document.getElementById('originZ'), 'Firing Z');
+
+      if (referenceMode.value === 'weapon' && profile.kind === 'mortar') {
+        originX += 0.5;
+        originY += 3;
+        originZ += 0.5;
+      } else if (referenceMode.value === 'weapon' && profile.usesBarrels) {
+        originX += 0.5;
+        originY += 0.5;
+        originZ += 0.5;
+      }
+
+      const targetX = numberValue(document.getElementById('targetX'), 'Target X');
+      const targetY = numberValue(document.getElementById('targetY'), 'Target Y');
+      const targetZ = numberValue(document.getElementById('targetZ'), 'Target Z');
+      const dx = targetX - originX;
+      const dy = targetY - originY;
+      const dz = targetZ - originZ;
+      const horizontalRange = Math.hypot(dx, dz);
+
+      if (horizontalRange < 0.000001) {
+        throw new Error('Firing point and target share the same X/Z position, so yaw is undefined.');
+      }
+
+      return {
+        dx: dx,
+        dy: dy,
+        dz: dz,
+        horizontalRange: horizontalRange,
+        yaw: normalizeSignedDegrees(degrees(Math.atan2(-dx, dz))),
+        bearing: normalizeBearing(degrees(Math.atan2(dx, -dz)))
+      };
+    }
+
+    function simulate(profile, elevation) {
+      const angle = radians(elevation);
       let x = 0;
       let y = 0;
-      let vx = profile.speed * Math.cos(radians);
-      let vy = profile.speed * Math.sin(radians);
-      const points = [{ x, y, tick: 0 }];
+      let vx = profile.speed * Math.cos(angle);
+      let vy = profile.speed * Math.sin(angle);
+      const points = [{ x: x, y: y, tick: 0 }];
 
       for (let tick = 1; tick <= profile.maxTicks; tick += 1) {
         x += vx;
         y += vy;
-        points.push({ x, y, tick });
+        points.push({ x: x, y: y, tick: tick });
         vx *= 0.99;
         vy = vy * 0.99 - 0.05;
         if (tick <= profile.burn) {
           vx *= profile.boost;
           vy *= profile.boost;
         }
-        if (tick > profile.burn && Math.abs(vx) < 0.0001 && y < -1000) break;
+        if (tick > profile.burn && vx < 0.0005 && y < -1500) break;
       }
       return points;
     }
 
-    function atDistance(profile, degrees, targetX) {
-      const points = simulate(profile, degrees);
-      if (targetX === 0) return { y: 0, tick: 0, points };
-      for (let i = 1; i < points.length; i += 1) {
-        const a = points[i - 1];
-        const b = points[i];
-        if (a.x <= targetX && b.x >= targetX && b.x > a.x) {
-          const fraction = (targetX - a.x) / (b.x - a.x);
-          return { y: a.y + (b.y - a.y) * fraction, tick: a.tick + fraction, points };
+    function atDistance(profile, elevation, geometry) {
+      const angle = radians(elevation);
+      const offsetX = profile.launchOffset * Math.cos(angle);
+      const offsetY = profile.launchOffset * Math.sin(angle);
+      const flightDistance = geometry.horizontalRange - offsetX;
+      if (flightDistance <= 0) return null;
+
+      const points = simulate(profile, elevation);
+      for (let index = 1; index < points.length; index += 1) {
+        const before = points[index - 1];
+        const after = points[index];
+        if (before.x <= flightDistance && after.x >= flightDistance && after.x > before.x) {
+          const fraction = (flightDistance - before.x) / (after.x - before.x);
+          const impactY = before.y + (after.y - before.y) * fraction;
+          return {
+            y: impactY + offsetY,
+            tick: before.tick + fraction,
+            points: points.map(function (point) {
+              return { x: point.x + offsetX, y: point.y + offsetY, tick: point.tick };
+            })
+          };
         }
       }
       return null;
     }
 
-    function findSolutions(profile, distance, targetHeight) {
+    function findSolutions(profile, geometry) {
       const roots = [];
-      const min = -89.5;
-      const max = 89.5;
-      const step = 0.2;
-      let previousAngle = min;
-      let previous = atDistance(profile, previousAngle, distance);
-      let previousValue = previous ? previous.y - targetHeight : null;
+      const minimum = -89.5;
+      const maximum = 89.5;
+      const step = 0.25;
+      let previousAngle = minimum;
+      let previous = atDistance(profile, previousAngle, geometry);
+      let previousError = previous ? previous.y - geometry.dy : null;
 
-      for (let angle = min + step; angle <= max + 0.0001; angle += step) {
-        const current = atDistance(profile, angle, distance);
-        const currentValue = current ? current.y - targetHeight : null;
-        if (previousValue !== null && currentValue !== null && (currentValue === 0 || previousValue === 0 || currentValue * previousValue < 0)) {
+      for (let angle = minimum + step; angle <= maximum + 0.0001; angle += step) {
+        const current = atDistance(profile, angle, geometry);
+        const currentError = current ? current.y - geometry.dy : null;
+        if (previousError !== null && currentError !== null
+          && (currentError === 0 || previousError === 0 || currentError * previousError < 0)) {
           let left = previousAngle;
           let right = angle;
-          let leftValue = previousValue;
-          for (let i = 0; i < 30; i += 1) {
+          let leftError = previousError;
+
+          for (let iteration = 0; iteration < 32; iteration += 1) {
             const middle = (left + right) / 2;
-            const middleSample = atDistance(profile, middle, distance);
+            const middleSample = atDistance(profile, middle, geometry);
             if (!middleSample) break;
-            const middleValue = middleSample.y - targetHeight;
-            if (Math.abs(middleValue) < 0.00001) { left = right = middle; break; }
-            if (leftValue * middleValue <= 0) right = middle;
-            else { left = middle; leftValue = middleValue; }
+            const middleError = middleSample.y - geometry.dy;
+            if (Math.abs(middleError) < 0.00001) {
+              left = middle;
+              right = middle;
+              break;
+            }
+            if (leftError * middleError <= 0) {
+              right = middle;
+            } else {
+              left = middle;
+              leftError = middleError;
+            }
           }
+
           const root = (left + right) / 2;
-          if (!roots.some(value => Math.abs(value - root) < 0.04)) roots.push(root);
+          if (!roots.some(function (value) { return Math.abs(value - root) < 0.04; })) roots.push(root);
         }
         previousAngle = angle;
-        previousValue = currentValue;
+        previousError = currentError;
       }
-      return roots.sort((a, b) => a - b).map(angle => ({ angle, data: atDistance(profile, angle, distance) }));
+
+      return roots.sort(function (a, b) { return a - b; }).map(function (angle) {
+        return { angle: angle, data: atDistance(profile, angle, geometry) };
+      }).filter(function (solution) { return Boolean(solution.data); });
     }
 
     function humanTime(ticks) {
-      return `${(ticks / 20).toFixed(2)} s · ${Math.round(ticks)} ticks`;
+      return (ticks / 20).toFixed(2) + ' s | ' + Math.round(ticks) + ' ticks';
     }
 
-    function maxRange(profile) {
-      const points = simulate(profile, 0);
-      return points[points.length - 1].x;
+    function mortarSettingFromElevation(elevation) {
+      return degrees(Math.atan(0.5 * Math.tan(radians(elevation)) - 0.5));
     }
 
-    function number(value, fallback) {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : fallback;
-    }
-
-    function setResult(element, valueElement, infoElement, solution, label) {
+    function setResult(card, title, valueElement, infoElement, solution, profile, arcName) {
+      title.textContent = arcName + (profile.kind === 'mortar' ? ' mortar arc' : ' arc');
       if (!solution) {
-        element.style.opacity = '.58';
-        valueElement.textContent = '—';
-        infoElement.textContent = 'No valid arc';
+        card.style.opacity = '.58';
+        valueElement.textContent = 'No solution';
+        infoElement.textContent = 'Move the target closer or change firing height.';
         return;
       }
-      element.style.opacity = '1';
-      const sign = solution.angle >= 0 ? '+' : '−';
-      valueElement.textContent = `${sign}${Math.abs(solution.angle).toFixed(2)}°`;
-      infoElement.textContent = `${label} · ${humanTime(solution.data.tick)}`;
+
+      card.style.opacity = '1';
+      if (profile.kind === 'mortar') {
+        valueElement.textContent = 'Aimer ' + signed(mortarSettingFromElevation(solution.angle), 2) + ' deg';
+        infoElement.textContent = 'True elevation ' + signed(solution.angle, 2) + ' deg | ' + humanTime(solution.data.tick);
+      } else {
+        valueElement.textContent = 'Elevation ' + signed(solution.angle, 2) + ' deg';
+        infoElement.textContent = 'Minecraft pitch ' + signed(-solution.angle, 2) + ' deg | ' + humanTime(solution.data.tick);
+      }
     }
 
-    function drawTrajectory(profile, distance, targetHeight, solutions) {
+    function drawTrajectory(profile, geometry, solutions) {
       const dpr = window.devicePixelRatio || 1;
       const width = Math.max(280, Math.floor(canvas.clientWidth));
       const height = Math.max(250, Math.floor(canvas.clientHeight));
@@ -286,101 +473,170 @@
       ctx.clearRect(0, 0, width, height);
 
       const padding = { left: 55, right: 19, top: 20, bottom: 38 };
-      const paths = solutions.map(solution => simulate(profile, solution.angle));
-      const viewPaths = paths.length ? paths : [simulate(profile, 0)];
-      let maxX = Math.max(distance * 1.08, 30);
-      let minY = Math.min(0, targetHeight);
-      let maxY = Math.max(0, targetHeight);
-      viewPaths.forEach(path => path.forEach(point => {
-        if (point.x <= maxX * 1.08) { minY = Math.min(minY, point.y); maxY = Math.max(maxY, point.y); }
-      }));
-      const spread = Math.max(16, maxY - minY);
-      minY -= spread * .16;
-      maxY += spread * .16;
+      const paths = solutions.map(function (solution) { return solution.data.points; });
+      const fallback = simulate(profile, 0).map(function (point) {
+        return { x: point.x + profile.launchOffset, y: point.y, tick: point.tick };
+      });
+      const viewPaths = paths.length ? paths : [fallback];
+      let maxX = Math.max(geometry.horizontalRange * 1.08, 30);
+      let minY = Math.min(0, geometry.dy);
+      let maxY = Math.max(0, geometry.dy);
+
+      viewPaths.forEach(function (path) {
+        path.forEach(function (point) {
+          if (point.x <= maxX * 1.08) {
+            minY = Math.min(minY, point.y);
+            maxY = Math.max(maxY, point.y);
+          }
+        });
+      });
+
+      const span = Math.max(16, maxY - minY);
+      minY -= span * 0.16;
+      maxY += span * 0.16;
       maxX = Math.max(maxX, 45);
-      const plotW = width - padding.left - padding.right;
-      const plotH = height - padding.top - padding.bottom;
-      const xScale = x => padding.left + (x / maxX) * plotW;
-      const yScale = y => padding.top + ((maxY - y) / (maxY - minY)) * plotH;
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const projectX = function (x) { return padding.left + x / maxX * plotWidth; };
+      const projectY = function (y) { return padding.top + (maxY - y) / (maxY - minY) * plotHeight; };
 
       ctx.strokeStyle = '#2b3a4d';
       ctx.lineWidth = 1;
       ctx.font = '12px system-ui, sans-serif';
       ctx.fillStyle = '#aab8c9';
       ctx.textAlign = 'right';
-      for (let i = 0; i <= 4; i += 1) {
-        const y = padding.top + plotH * i / 4;
-        const value = maxY - (maxY - minY) * i / 4;
-        ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(width - padding.right, y); ctx.stroke();
-        ctx.fillText(`${value.toFixed(0)}`, padding.left - 8, y + 4);
+      for (let index = 0; index <= 4; index += 1) {
+        const y = padding.top + plotHeight * index / 4;
+        const value = maxY - (maxY - minY) * index / 4;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+        ctx.stroke();
+        ctx.fillText(value.toFixed(0), padding.left - 8, y + 4);
       }
+
       ctx.textAlign = 'center';
-      for (let i = 0; i <= 4; i += 1) {
-        const x = padding.left + plotW * i / 4;
-        const value = maxX * i / 4;
-        ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, height - padding.bottom); ctx.stroke();
-        ctx.fillText(`${value.toFixed(0)}`, x, height - 14);
+      for (let index = 0; index <= 4; index += 1) {
+        const x = padding.left + plotWidth * index / 4;
+        const value = maxX * index / 4;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, height - padding.bottom);
+        ctx.stroke();
+        ctx.fillText(value.toFixed(0), x, height - 14);
       }
-      const zeroY = yScale(0);
+
+      const zeroY = projectY(0);
       if (zeroY >= padding.top && zeroY <= height - padding.bottom) {
-        ctx.strokeStyle = '#6b7f98'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(padding.left, zeroY); ctx.lineTo(width - padding.right, zeroY); ctx.stroke();
+        ctx.strokeStyle = '#6b7f98';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, zeroY);
+        ctx.lineTo(width - padding.right, zeroY);
+        ctx.stroke();
       }
+
       ctx.fillStyle = '#aab8c9';
-      ctx.textAlign = 'left'; ctx.fillText('height (blocks)', 7, padding.top + 10);
-      ctx.textAlign = 'right'; ctx.fillText('horizontal distance (blocks)', width - padding.right, height - 4);
+      ctx.textAlign = 'left';
+      ctx.fillText('height (blocks)', 7, padding.top + 10);
+      ctx.textAlign = 'right';
+      ctx.fillText('horizontal distance (blocks)', width - padding.right, height - 4);
 
       const colors = ['#8fe3a7', '#ffbf69'];
-      paths.forEach((path, index) => {
-        ctx.strokeStyle = colors[index]; ctx.lineWidth = 2.3;
+      paths.forEach(function (path, index) {
+        ctx.strokeStyle = colors[index % colors.length];
+        ctx.lineWidth = 2.3;
         ctx.beginPath();
         let started = false;
-        path.forEach(point => {
+        path.forEach(function (point) {
           if (point.x > maxX) return;
-          const x = xScale(point.x); const y = yScale(point.y);
-          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+          const x = projectX(point.x);
+          const y = projectY(point.y);
+          if (!started) {
+            ctx.moveTo(x, y);
+            started = true;
+          } else {
+            ctx.lineTo(x, y);
+          }
         });
         ctx.stroke();
       });
-      if (!paths.length) {
-        ctx.strokeStyle = '#6b7f98'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(xScale(0), yScale(0)); ctx.lineTo(xScale(maxX), yScale(0)); ctx.stroke(); ctx.setLineDash([]);
-      }
-      const targetX = xScale(distance); const targetY = yScale(targetHeight);
-      ctx.strokeStyle = '#69b6ff'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(targetX, targetY, 5, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = '#69b6ff'; ctx.textAlign = 'left';
+
+      const targetX = projectX(geometry.horizontalRange);
+      const targetY = projectY(geometry.dy);
+      ctx.strokeStyle = '#69b6ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#69b6ff';
+      ctx.textAlign = 'left';
       ctx.fillText('target', Math.min(targetX + 8, width - 48), Math.max(targetY - 8, 13));
     }
 
-    function update() {
-      const profile = PROJECTILES[weapon.value];
-      const distance = Math.max(0.1, number(distanceInput.value, 250));
-      const targetHeight = number(heightInput.value, 0);
-      const solutions = findSolutions(profile, distance, targetHeight);
-      const lower = solutions[0];
-      const higher = solutions.length > 1 ? solutions[solutions.length - 1] : null;
-      setResult(lowResult, lowAngle, lowInfo, lower, 'Aim this first');
-      setResult(highResult, highAngle, highInfo, higher, 'Use only with clear sky');
-      const range = maxRange(profile);
-      const rangeText = weapon.value === 'ordinance' ? `The no-lock Ordinance profile self-destructs after ${humanTime(profile.maxTicks)}.` : `Flat-fire maximum range is about ${range.toFixed(0)} blocks before drag stops useful travel.`;
-      if (!solutions.length) {
-        status.textContent = `No ballistic solution for this target. ${rangeText}`;
-        status.className = 'status error';
-      } else {
-        status.textContent = `${solutions.length === 1 ? 'One' : 'Two'} ballistic ${solutions.length === 1 ? 'solution' : 'solutions'} found. ${rangeText}`;
-        status.className = 'status';
-      }
-      details.innerHTML = `<strong>${profile.name}</strong><br>${profile.behavior}<br><span>${profile.precision}</span>`;
-      document.getElementById('speedValue').textContent = `${profile.speed.toFixed(2)} blocks/tick (${(profile.speed * 20).toFixed(0)} blocks/s at launch)`;
-      document.getElementById('boostValue').textContent = `×${profile.boost.toFixed(2)} velocity each tick for ${profile.burn} ticks`;
-      document.getElementById('limitValue').textContent = profile.flight;
-      drawTrajectory(profile, distance, targetHeight, solutions);
+    function updateControls(profile) {
+      barrelRow.hidden = !profile.usesBarrels;
+      runtimeRow.hidden = !profile.usesBarrels;
     }
 
-    [weapon, distanceInput, heightInput].forEach(element => element.addEventListener('input', update));
+    function update() {
+      try {
+        const profile = getProfile();
+        updateControls(profile);
+        const geometry = getGeometry(profile);
+        const solutions = findSolutions(profile, geometry);
+        const lower = solutions[0];
+        const higher = solutions.length > 1 ? solutions[solutions.length - 1] : null;
+        setResult(lowResult, lowTitle, lowAngle, lowInfo, lower, profile, 'Low');
+        setResult(highResult, highTitle, highAngle, highInfo, higher, profile, 'High');
+
+        if (solutions.length) {
+          status.className = 'status';
+          status.textContent = (solutions.length === 1 ? 'One ballistic solution found.' : 'Low and high ballistic arcs found.')
+            + ' Set Minecraft yaw to ' + signed(geometry.yaw, 2) + ' deg.';
+        } else {
+          status.className = 'status error';
+          status.textContent = 'No ballistic solution reaches this target with the selected profile.';
+        }
+
+        const referenceNote = referenceMode.value === 'weapon' && profile.kind === 'mortar'
+          ? ' Mortar block coordinates include Warium\'s +0.5 X/Z and +3 Y spawn offset.'
+          : referenceMode.value === 'weapon' && profile.usesBarrels
+            ? ' Cannon block coordinates include the block-centre and barrel-length muzzle offsets.'
+            : referenceMode.value === 'weapon' && profile.kind === 'rocket'
+              ? ' Rocket offsets are unknown, so use the actual projectile spawn point for precision.'
+              : ' Coordinates are interpreted as the exact projectile origin.';
+
+        details.textContent = profile.behavior + ' ' + profile.precision + referenceNote;
+        document.getElementById('geometryValue').textContent = geometry.horizontalRange.toFixed(1) + ' blocks horizontal | '
+          + signed(geometry.dy, 1) + ' blocks height';
+        document.getElementById('yawValue').textContent = 'Minecraft yaw ' + signed(geometry.yaw, 2) + ' deg | '
+          + cardinalBearing(geometry.bearing) + ' bearing (' + geometry.bearing.toFixed(1) + ' deg)';
+        document.getElementById('speedValue').textContent = profile.speed.toFixed(2) + ' blocks/tick | '
+          + (profile.speed * 20).toFixed(0) + ' blocks/s at launch';
+        document.getElementById('profileValue').textContent = profile.flight
+          + (profile.burn ? ' | Engine x' + profile.boost.toFixed(2) + ' for ' + profile.burn + ' ticks' : '');
+        drawTrajectory(profile, geometry, solutions);
+      } catch (error) {
+        status.className = 'status error';
+        status.textContent = error.message;
+        lowResult.style.opacity = '.58';
+        highResult.style.opacity = '.58';
+        lowAngle.textContent = 'Invalid input';
+        highAngle.textContent = 'Invalid input';
+        lowInfo.textContent = '';
+        highInfo.textContent = '';
+      }
+    }
+
+    weapon.addEventListener('change', update);
+    barrelsInput.addEventListener('input', update);
+    runtime.addEventListener('change', update);
+    referenceMode.addEventListener('change', update);
+    coordinateInputs.forEach(function (input) { input.addEventListener('input', update); });
     window.addEventListener('resize', update);
     update();
   </script>
 </body>
 </html>
+
