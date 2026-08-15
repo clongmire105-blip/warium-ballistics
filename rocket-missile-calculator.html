@@ -54,6 +54,9 @@
     .status.error { color: var(--danger); }
     .chart-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0d131c; }
     canvas { display: block; width: 100%; height: 315px; }
+    #topdownMap { height: 270px; }
+    .map-section { margin-top: 22px; }
+    .map-section h2 { margin-bottom: 5px; }
     .chart-note { color: var(--muted); font-size: .82rem; margin: 9px 2px 0; }
     .coordinate-section { display: grid; gap: 9px; }
     .coordinate-section h3 { margin: 0; font-size: .92rem; }
@@ -162,6 +165,13 @@
           <canvas id="trajectory" role="img" aria-label="Calculated projectile trajectories"></canvas>
         </div>
         <p class="chart-note">0° is level with the launcher. Positive angles point the launcher up. The graph shows the calculated center path; it does not account for terrain collisions.</p>
+        <section class="map-section" aria-label="Top-down coordinate map">
+          <h2>Top-down X/Z map</h2>
+          <div class="chart-wrap">
+            <canvas id="topdownMap" role="img" aria-label="Top-down map of launcher and target X/Z coordinates"></canvas>
+          </div>
+          <p class="chart-note">The launcher is at the centre. X increases to the right (East); Z increases downward (South), matching Minecraft's yaw convention.</p>
+        </section>
       </section>
     </section>
 
@@ -233,6 +243,8 @@
     const details = document.getElementById('weaponDetails');
     const canvas = document.getElementById('trajectory');
     const ctx = canvas.getContext('2d');
+    const mapCanvas = document.getElementById('topdownMap');
+    const mapCtx = mapCanvas.getContext('2d');
     const status = document.getElementById('status');
     const lowAngle = document.getElementById('lowAngle');
     const lowInfo = document.getElementById('lowInfo');
@@ -574,6 +586,108 @@
       ctx.fillText('target', Math.min(targetX + 8, width - 48), Math.max(targetY - 8, 13));
     }
 
+    function drawTopDownMap(geometry) {
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(280, Math.floor(mapCanvas.clientWidth));
+      const height = Math.max(230, Math.floor(mapCanvas.clientHeight));
+      mapCanvas.width = width * dpr;
+      mapCanvas.height = height * dpr;
+      mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      mapCtx.clearRect(0, 0, width, height);
+
+      const padding = { left: 44, right: 18, top: 24, bottom: 32 };
+      const plotWidth = width - padding.left - padding.right;
+      const plotHeight = height - padding.top - padding.bottom;
+      const extent = Math.max(20, Math.abs(geometry.dx), Math.abs(geometry.dz)) * 1.2;
+      const scale = Math.min(plotWidth, plotHeight) / (extent * 2);
+      const centerX = padding.left + plotWidth / 2;
+      const centerY = padding.top + plotHeight / 2;
+      const projectX = function (x) { return centerX + x * scale; };
+      const projectZ = function (z) { return centerY + z * scale; };
+
+      mapCtx.strokeStyle = '#2b3a4d';
+      mapCtx.fillStyle = '#aab8c9';
+      mapCtx.lineWidth = 1;
+      mapCtx.font = '11px system-ui, sans-serif';
+      mapCtx.textAlign = 'center';
+      for (let index = -2; index <= 2; index += 1) {
+        const coordinate = extent * index / 2;
+        const x = projectX(coordinate);
+        const z = projectZ(coordinate);
+        mapCtx.beginPath();
+        mapCtx.moveTo(x, padding.top);
+        mapCtx.lineTo(x, height - padding.bottom);
+        mapCtx.stroke();
+        mapCtx.beginPath();
+        mapCtx.moveTo(padding.left, z);
+        mapCtx.lineTo(width - padding.right, z);
+        mapCtx.stroke();
+        if (index !== 0) {
+          mapCtx.fillText(coordinate.toFixed(0), x, height - 12);
+          mapCtx.textAlign = 'right';
+          mapCtx.fillText(coordinate.toFixed(0), padding.left - 6, z + 4);
+          mapCtx.textAlign = 'center';
+        }
+      }
+
+      mapCtx.strokeStyle = '#6b7f98';
+      mapCtx.lineWidth = 1.4;
+      mapCtx.beginPath();
+      mapCtx.moveTo(padding.left, centerY);
+      mapCtx.lineTo(width - padding.right, centerY);
+      mapCtx.moveTo(centerX, padding.top);
+      mapCtx.lineTo(centerX, height - padding.bottom);
+      mapCtx.stroke();
+
+      mapCtx.fillStyle = '#aab8c9';
+      mapCtx.textAlign = 'left';
+      mapCtx.fillText('-X West', padding.left + 3, centerY - 8);
+      mapCtx.textAlign = 'right';
+      mapCtx.fillText('+X East', width - padding.right - 3, centerY - 8);
+      mapCtx.textAlign = 'left';
+      mapCtx.fillText('-Z North', centerX + 7, padding.top + 12);
+      mapCtx.fillText('+Z South', centerX + 7, height - padding.bottom - 7);
+
+      const launcherX = projectX(0);
+      const launcherY = projectZ(0);
+      const targetX = projectX(geometry.dx);
+      const targetY = projectZ(geometry.dz);
+      mapCtx.strokeStyle = '#8fe3a7';
+      mapCtx.lineWidth = 2.4;
+      mapCtx.beginPath();
+      mapCtx.moveTo(launcherX, launcherY);
+      mapCtx.lineTo(targetX, targetY);
+      mapCtx.stroke();
+
+      const arrowAngle = Math.atan2(targetY - launcherY, targetX - launcherX);
+      const arrowSize = 9;
+      mapCtx.fillStyle = '#8fe3a7';
+      mapCtx.beginPath();
+      mapCtx.moveTo(targetX, targetY);
+      mapCtx.lineTo(targetX - arrowSize * Math.cos(arrowAngle - Math.PI / 6), targetY - arrowSize * Math.sin(arrowAngle - Math.PI / 6));
+      mapCtx.lineTo(targetX - arrowSize * Math.cos(arrowAngle + Math.PI / 6), targetY - arrowSize * Math.sin(arrowAngle + Math.PI / 6));
+      mapCtx.closePath();
+      mapCtx.fill();
+
+      mapCtx.fillStyle = '#8fe3a7';
+      mapCtx.beginPath();
+      mapCtx.arc(launcherX, launcherY, 5, 0, Math.PI * 2);
+      mapCtx.fill();
+      mapCtx.fillStyle = '#69b6ff';
+      mapCtx.beginPath();
+      mapCtx.arc(targetX, targetY, 5, 0, Math.PI * 2);
+      mapCtx.fill();
+
+      mapCtx.font = '12px system-ui, sans-serif';
+      mapCtx.textAlign = 'left';
+      mapCtx.fillStyle = '#f1f5f9';
+      mapCtx.fillText('launcher (0, 0)', launcherX + 8, launcherY - 8);
+      mapCtx.fillText('target (' + geometry.dx.toFixed(1) + ', ' + geometry.dz.toFixed(1) + ')', targetX + 8, targetY - 8);
+      mapCanvas.setAttribute('aria-label', 'Top-down X/Z map: launcher at 0, 0 and target at '
+        + geometry.dx.toFixed(1) + ' X, ' + geometry.dz.toFixed(1) + ' Z. Minecraft yaw '
+        + signed(geometry.yaw, 2) + ' degrees.');
+    }
+
     function updateControls(profile) {
       barrelRow.hidden = !profile.usesBarrels;
       runtimeRow.hidden = !profile.usesBarrels;
@@ -610,13 +724,14 @@
         details.textContent = profile.behavior + ' ' + profile.precision + referenceNote;
         document.getElementById('geometryValue').textContent = geometry.horizontalRange.toFixed(1) + ' blocks horizontal | '
           + signed(geometry.dy, 1) + ' blocks height';
-        document.getElementById('yawValue').textContent = 'Minecraft yaw ' + signed(geometry.yaw, 2) + ' deg | '
+        document.getElementById('yawValue').textContent = 'Minecraft yaw ' + signed(geometry.yaw, 2) + ' deg (0 = +Z/South) | '
           + cardinalBearing(geometry.bearing) + ' bearing (' + geometry.bearing.toFixed(1) + ' deg)';
         document.getElementById('speedValue').textContent = profile.speed.toFixed(2) + ' blocks/tick | '
           + (profile.speed * 20).toFixed(0) + ' blocks/s at launch';
         document.getElementById('profileValue').textContent = profile.flight
           + (profile.burn ? ' | Engine x' + profile.boost.toFixed(2) + ' for ' + profile.burn + ' ticks' : '');
         drawTrajectory(profile, geometry, solutions);
+        drawTopDownMap(geometry);
       } catch (error) {
         status.className = 'status error';
         status.textContent = error.message;
