@@ -50,6 +50,7 @@
     .result-value { display: block; margin-top: 5px; color: var(--good); font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; }
     .result-sub { display: block; margin-top: 5px; color: var(--muted); font-size: .85rem; }
     .result.high .result-value { color: var(--accent-2); }
+    .result.out-of-range .result-value { color: var(--danger); }
     .status { min-height: 24px; margin: 17px 0 11px; color: var(--muted); }
     .status.error { color: var(--danger); }
     .chart-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0d131c; }
@@ -127,6 +128,19 @@
           </select>
           <small>Weapon block mode applies Warium's cannon and mortar spawn offsets. Use exact origin for rockets.</small>
         </label>
+        <label for="launcherFacing">Launcher faces (Aimer yaw 0°)
+          <select id="launcherFacing">
+            <option value="north">North (-Z)</option>
+            <option value="northEast">North-east</option>
+            <option value="east" selected>East (+X)</option>
+            <option value="southEast">South-east</option>
+            <option value="south">South (+Z)</option>
+            <option value="southWest">South-west</option>
+            <option value="west">West (-X)</option>
+            <option value="northWest">North-west</option>
+          </select>
+          <small>Choose the direction the launcher points when its Warium Aimer yaw readout is 0°.</small>
+        </label>
         <section class="coordinate-section" aria-label="Firing position">
           <h3>Firing position</h3>
           <div class="coordinate-grid">
@@ -170,19 +184,19 @@
           <div class="chart-wrap">
             <canvas id="topdownMap" role="img" aria-label="Top-down map of launcher and target X/Z coordinates"></canvas>
           </div>
-          <p class="chart-note">The launcher is at the centre. X increases to the right (East); Z increases downward (South), matching Minecraft's yaw convention.</p>
+          <p class="chart-note">The launcher is at the centre. Green points to the target; orange shows the selected launcher facing. X increases right (East) and Z increases down (South).</p>
         </section>
       </section>
     </section>
 
     <section class="facts" aria-label="Selected projectile data">
       <div class="fact"><b>Target geometry</b><span id="geometryValue">&mdash;</span></div>
-      <div class="fact"><b>Yaw to target</b><span id="yawValue">&mdash;</span></div>
+      <div class="fact"><b>Aimer yaw from facing</b><span id="yawValue">&mdash;</span></div>
       <div class="fact"><b>Launch speed</b><span id="speedValue">&mdash;</span></div>
       <div class="fact"><b>Selected profile</b><span id="profileValue">&mdash;</span></div>
     </section>
 
-    <p class="footer-note">Model: Warium's arrow projectile drag (<code>0.99</code>) and gravity (<code>0.05 blocks/tick^2</code>) are applied each tick. Guided Ordinance variants begin steering after startup, so its result is intentionally the no-lock ballistic path. Terrain, moving vehicles, and mount rotation limits are not modeled.</p>
+    <p class="footer-note">Model: Warium's arrow projectile drag (<code>0.99</code>) and gravity (<code>0.05 blocks/tick^2</code>) are applied each tick. Guided Ordinance variants begin steering after startup, so its result is intentionally the no-lock ballistic path. Warium Aimer limits are checked; terrain, moving vehicles, and projectile spread are not modeled.</p>
   </main>
 
   <script>
@@ -238,6 +252,7 @@
     const barrelsInput = document.getElementById('barrels');
     const runtime = document.getElementById('runtime');
     const referenceMode = document.getElementById('referenceMode');
+    const launcherFacing = document.getElementById('launcherFacing');
     const barrelRow = document.getElementById('barrelRow');
     const runtimeRow = document.getElementById('runtimeRow');
     const details = document.getElementById('weaponDetails');
@@ -256,6 +271,20 @@
     const highResult = document.getElementById('highResult');
     const coordinateInputs = ['originX', 'originY', 'originZ', 'targetX', 'targetY', 'targetZ']
       .map(function (id) { return document.getElementById(id); });
+
+    // Warium's Aimer controls change these values in 0.5° steps. The checks below
+    // include the final half-step the in-game controls can reach.
+    const AIMER_LIMITS = { yaw: 30.5, pitchMin: -21.5, pitchMax: 44.5, step: 0.5 };
+    const FACING = {
+      north: { label: 'North', yaw: -180 },
+      northEast: { label: 'North-east', yaw: -135 },
+      east: { label: 'East', yaw: -90 },
+      southEast: { label: 'South-east', yaw: -45 },
+      south: { label: 'South', yaw: 0 },
+      southWest: { label: 'South-west', yaw: 45 },
+      west: { label: 'West', yaw: 90 },
+      northWest: { label: 'North-west', yaw: 135 }
+    };
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -291,9 +320,33 @@
       return (value >= 0 ? '+' : '-') + Math.abs(value).toFixed(digits);
     }
 
+    function roundToAimerStep(value) {
+      return Math.round(value / AIMER_LIMITS.step) * AIMER_LIMITS.step;
+    }
+
     function cardinalBearing(bearing) {
       const labels = ['North', 'North-east', 'East', 'South-east', 'South', 'South-west', 'West', 'North-west'];
       return labels[Math.round(bearing / 45) % 8];
+    }
+
+    function getAim(geometry) {
+      const facing = FACING[launcherFacing.value];
+      const yaw = normalizeSignedDegrees(geometry.yaw - facing.yaw);
+      return {
+        facing: facing,
+        yaw: yaw,
+        setYaw: roundToAimerStep(yaw),
+        yawInRange: Math.abs(yaw) <= AIMER_LIMITS.yaw + 0.000001
+      };
+    }
+
+    function aimerPitchForElevation(profile, elevation) {
+      return profile.kind === 'mortar' ? mortarSettingFromElevation(elevation) : elevation;
+    }
+
+    function isPitchInRange(profile, elevation) {
+      const pitch = aimerPitchForElevation(profile, elevation);
+      return pitch >= AIMER_LIMITS.pitchMin - 0.000001 && pitch <= AIMER_LIMITS.pitchMax + 0.000001;
     }
 
     function getProfile() {
@@ -460,19 +513,24 @@
       title.textContent = arcName + (profile.kind === 'mortar' ? ' mortar arc' : ' arc');
       if (!solution) {
         card.style.opacity = '.58';
+        card.classList.remove('out-of-range');
         valueElement.textContent = 'No solution';
         infoElement.textContent = 'Move the target closer or change firing height.';
         return;
       }
 
-      card.style.opacity = '1';
-      if (profile.kind === 'mortar') {
-        valueElement.textContent = 'Aimer ' + signed(mortarSettingFromElevation(solution.angle), 2) + ' deg';
-        infoElement.textContent = 'True elevation ' + signed(solution.angle, 2) + ' deg | ' + humanTime(solution.data.tick);
-      } else {
-        valueElement.textContent = 'Elevation ' + signed(solution.angle, 2) + ' deg';
-        infoElement.textContent = 'Minecraft pitch ' + signed(-solution.angle, 2) + ' deg | ' + humanTime(solution.data.tick);
-      }
+      const requiredPitch = aimerPitchForElevation(profile, solution.angle);
+      const setPitch = roundToAimerStep(requiredPitch);
+      const pitchInRange = isPitchInRange(profile, solution.angle);
+      card.style.opacity = pitchInRange ? '1' : '.78';
+      card.classList.toggle('out-of-range', !pitchInRange);
+      valueElement.textContent = 'Aimer pitch ' + signed(setPitch, 1) + ' deg';
+      infoElement.textContent = 'Calculated ' + signed(requiredPitch, 2) + ' deg | True elevation '
+        + signed(solution.angle, 2) + ' deg | ' + humanTime(solution.data.tick)
+        + (pitchInRange
+          ? ' | Within Warium range.'
+          : ' | OUT OF RANGE: Warium allows ' + signed(AIMER_LIMITS.pitchMin, 1) + ' to '
+            + signed(AIMER_LIMITS.pitchMax, 1) + ' deg.');
     }
 
     function drawTrajectory(profile, geometry, solutions) {
@@ -586,7 +644,18 @@
       ctx.fillText('target', Math.min(targetX + 8, width - 48), Math.max(targetY - 8, 13));
     }
 
-    function drawTopDownMap(geometry) {
+    function drawArrow(context, fromX, fromY, toX, toY, color, size) {
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      context.fillStyle = color;
+      context.beginPath();
+      context.moveTo(toX, toY);
+      context.lineTo(toX - size * Math.cos(angle - Math.PI / 6), toY - size * Math.sin(angle - Math.PI / 6));
+      context.lineTo(toX - size * Math.cos(angle + Math.PI / 6), toY - size * Math.sin(angle + Math.PI / 6));
+      context.closePath();
+      context.fill();
+    }
+
+    function drawTopDownMap(geometry, aim) {
       const dpr = window.devicePixelRatio || 1;
       const width = Math.max(280, Math.floor(mapCanvas.clientWidth));
       const height = Math.max(230, Math.floor(mapCanvas.clientHeight));
@@ -652,22 +721,29 @@
       const launcherY = projectZ(0);
       const targetX = projectX(geometry.dx);
       const targetY = projectZ(geometry.dz);
+
+      const facingDistance = Math.max(12, Math.min(extent * 0.52, geometry.horizontalRange * 0.55));
+      const facingRadians = radians(aim.facing.yaw);
+      const facingX = projectX(-Math.sin(facingRadians) * facingDistance);
+      const facingY = projectZ(Math.cos(facingRadians) * facingDistance);
+      mapCtx.save();
+      mapCtx.setLineDash([6, 5]);
+      mapCtx.strokeStyle = aim.yawInRange ? '#ffbf69' : '#ff6b6b';
+      mapCtx.lineWidth = 2;
+      mapCtx.beginPath();
+      mapCtx.moveTo(launcherX, launcherY);
+      mapCtx.lineTo(facingX, facingY);
+      mapCtx.stroke();
+      mapCtx.restore();
+      drawArrow(mapCtx, launcherX, launcherY, facingX, facingY, aim.yawInRange ? '#ffbf69' : '#ff6b6b', 8);
+
       mapCtx.strokeStyle = '#8fe3a7';
       mapCtx.lineWidth = 2.4;
       mapCtx.beginPath();
       mapCtx.moveTo(launcherX, launcherY);
       mapCtx.lineTo(targetX, targetY);
       mapCtx.stroke();
-
-      const arrowAngle = Math.atan2(targetY - launcherY, targetX - launcherX);
-      const arrowSize = 9;
-      mapCtx.fillStyle = '#8fe3a7';
-      mapCtx.beginPath();
-      mapCtx.moveTo(targetX, targetY);
-      mapCtx.lineTo(targetX - arrowSize * Math.cos(arrowAngle - Math.PI / 6), targetY - arrowSize * Math.sin(arrowAngle - Math.PI / 6));
-      mapCtx.lineTo(targetX - arrowSize * Math.cos(arrowAngle + Math.PI / 6), targetY - arrowSize * Math.sin(arrowAngle + Math.PI / 6));
-      mapCtx.closePath();
-      mapCtx.fill();
+      drawArrow(mapCtx, launcherX, launcherY, targetX, targetY, '#8fe3a7', 9);
 
       mapCtx.fillStyle = '#8fe3a7';
       mapCtx.beginPath();
@@ -683,9 +759,12 @@
       mapCtx.fillStyle = '#f1f5f9';
       mapCtx.fillText('launcher (0, 0)', launcherX + 8, launcherY - 8);
       mapCtx.fillText('target (' + geometry.dx.toFixed(1) + ', ' + geometry.dz.toFixed(1) + ')', targetX + 8, targetY - 8);
+      mapCtx.fillStyle = aim.yawInRange ? '#ffbf69' : '#ff6b6b';
+      mapCtx.fillText('faces ' + aim.facing.label, facingX + 7, facingY + 15);
       mapCanvas.setAttribute('aria-label', 'Top-down X/Z map: launcher at 0, 0 and target at '
-        + geometry.dx.toFixed(1) + ' X, ' + geometry.dz.toFixed(1) + ' Z. Minecraft yaw '
-        + signed(geometry.yaw, 2) + ' degrees.');
+        + geometry.dx.toFixed(1) + ' X, ' + geometry.dz.toFixed(1) + ' Z. Launcher faces '
+        + aim.facing.label + '; required Aimer yaw is ' + signed(aim.yaw, 2) + ' degrees'
+        + (aim.yawInRange ? ', within range.' : ', outside Warium Aimer range.'));
     }
 
     function updateControls(profile) {
@@ -698,20 +777,49 @@
         const profile = getProfile();
         updateControls(profile);
         const geometry = getGeometry(profile);
+        const aim = getAim(geometry);
         const solutions = findSolutions(profile, geometry);
         const lower = solutions[0];
         const higher = solutions.length > 1 ? solutions[solutions.length - 1] : null;
+        const pitchReadySolutions = solutions.filter(function (solution) {
+          return isPitchInRange(profile, solution.angle);
+        });
+        const pitchBlockedSolutions = solutions.filter(function (solution) {
+          return !isPitchInRange(profile, solution.angle);
+        });
         setResult(lowResult, lowTitle, lowAngle, lowInfo, lower, profile, 'Low');
         setResult(highResult, highTitle, highAngle, highInfo, higher, profile, 'High');
 
-        if (solutions.length) {
-          status.className = 'status';
-          status.textContent = (solutions.length === 1 ? 'One ballistic solution found.' : 'Low and high ballistic arcs found.')
-            + ' Set Minecraft yaw to ' + signed(geometry.yaw, 2) + ' deg.';
+        const messages = [];
+        let hasAimError = false;
+        if (!solutions.length) {
+          messages.push('No ballistic solution reaches this target with the selected profile.');
+          hasAimError = true;
+        } else if (!pitchReadySolutions.length) {
+          messages.push('Ballistic arc' + (solutions.length === 1 ? ' exists' : 's exist')
+            + ', but every required Aimer pitch is outside Warium\'s '
+            + signed(AIMER_LIMITS.pitchMin, 1) + ' to ' + signed(AIMER_LIMITS.pitchMax, 1) + ' deg range.');
+          hasAimError = true;
         } else {
-          status.className = 'status error';
-          status.textContent = 'No ballistic solution reaches this target with the selected profile.';
+          messages.push((pitchReadySolutions.length === 1 ? 'One fire-ready arc found.' : 'Two fire-ready arcs found.'));
+          if (pitchBlockedSolutions.length) {
+            messages.push(pitchBlockedSolutions.length + ' other arc'
+              + (pitchBlockedSolutions.length === 1 ? ' needs' : 's need') + ' pitch outside the Warium Aimer range.');
+          }
         }
+
+        if (aim.yawInRange) {
+          messages.push('With the launcher facing ' + aim.facing.label + ', set Aimer yaw to '
+            + signed(aim.setYaw, 1) + ' deg (calculated ' + signed(aim.yaw, 2) + ' deg).');
+        } else {
+          messages.push('Yaw impossible from this facing: the target needs ' + signed(aim.yaw, 2)
+            + ' deg, but Warium Aimer yaw is limited to ' + signed(-AIMER_LIMITS.yaw, 1)
+            + ' to ' + signed(AIMER_LIMITS.yaw, 1) + ' deg. Reorient the launcher closer to '
+            + cardinalBearing(geometry.bearing) + '.');
+          hasAimError = true;
+        }
+        status.className = hasAimError ? 'status error' : 'status';
+        status.textContent = messages.join(' ');
 
         const referenceNote = referenceMode.value === 'weapon' && profile.kind === 'mortar'
           ? ' Mortar block coordinates include Warium\'s +0.5 X/Z and +3 Y spawn offset.'
@@ -724,14 +832,19 @@
         details.textContent = profile.behavior + ' ' + profile.precision + referenceNote;
         document.getElementById('geometryValue').textContent = geometry.horizontalRange.toFixed(1) + ' blocks horizontal | '
           + signed(geometry.dy, 1) + ' blocks height';
-        document.getElementById('yawValue').textContent = 'Minecraft yaw ' + signed(geometry.yaw, 2) + ' deg (0 = +Z/South) | '
-          + cardinalBearing(geometry.bearing) + ' bearing (' + geometry.bearing.toFixed(1) + ' deg)';
+        document.getElementById('yawValue').textContent = 'Launcher faces ' + aim.facing.label + '. Target is '
+          + cardinalBearing(geometry.bearing) + '. Set Aimer yaw ' + signed(aim.setYaw, 1)
+          + ' deg (calculated ' + signed(aim.yaw, 2) + ' deg)'
+          + (aim.yawInRange
+            ? ' | Within Warium range ' + signed(-AIMER_LIMITS.yaw, 1) + ' to ' + signed(AIMER_LIMITS.yaw, 1) + ' deg.'
+            : ' | OUT OF RANGE: Warium allows ' + signed(-AIMER_LIMITS.yaw, 1) + ' to '
+              + signed(AIMER_LIMITS.yaw, 1) + ' deg.');
         document.getElementById('speedValue').textContent = profile.speed.toFixed(2) + ' blocks/tick | '
           + (profile.speed * 20).toFixed(0) + ' blocks/s at launch';
         document.getElementById('profileValue').textContent = profile.flight
           + (profile.burn ? ' | Engine x' + profile.boost.toFixed(2) + ' for ' + profile.burn + ' ticks' : '');
         drawTrajectory(profile, geometry, solutions);
-        drawTopDownMap(geometry);
+        drawTopDownMap(geometry, aim);
       } catch (error) {
         status.className = 'status error';
         status.textContent = error.message;
@@ -748,10 +861,10 @@
     barrelsInput.addEventListener('input', update);
     runtime.addEventListener('change', update);
     referenceMode.addEventListener('change', update);
+    launcherFacing.addEventListener('change', update);
     coordinateInputs.forEach(function (input) { input.addEventListener('input', update); });
     window.addEventListener('resize', update);
     update();
   </script>
 </body>
 </html>
-
