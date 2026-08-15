@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Warium Ballistics Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10141b;
+      --panel: #18202c;
+      --panel-2: #202b3a;
+      --line: #35465c;
+      --text: #f1f5f9;
+      --muted: #aab8c9;
+      --accent: #69b6ff;
+      --accent-2: #ffbf69;
+      --danger: #ff8c8c;
+      --good: #8fe3a7;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: radial-gradient(circle at top, #202c3d 0, var(--bg) 54%);
+      color: var(--text);
+      font: 16px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { max-width: 1050px; margin: 0 auto; padding: 32px 20px 48px; }
+    h1, h2, p { margin-top: 0; }
+    h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); margin-bottom: 6px; }
+    h2 { font-size: 1.05rem; margin-bottom: 14px; }
+    .lede, .muted { color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.45fr); gap: 20px; margin-top: 26px; }
+    .panel { background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .controls { display: grid; gap: 18px; align-content: start; }
+    label { display: grid; gap: 7px; font-weight: 600; }
+    label small { color: var(--muted); font-weight: 400; }
+    input, select {
+      width: 100%; border: 1px solid var(--line); border-radius: 8px;
+      background: #111924; color: var(--text); font: inherit; padding: 10px 11px;
+    }
+    input:focus, select:focus { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+    .weapon-details { border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: .9rem; }
+    .weapon-details strong { color: var(--text); }
+    .result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .result { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-height: 110px; }
+    .result-label { display: block; color: var(--muted); font-size: .85rem; }
+    .result-value { display: block; margin-top: 5px; color: var(--good); font-size: 1.55rem; font-weight: 700; letter-spacing: -.02em; }
+    .result-sub { display: block; margin-top: 5px; color: var(--muted); font-size: .85rem; }
+    .result.high .result-value { color: var(--accent-2); }
+    .status { min-height: 24px; margin: 17px 0 11px; color: var(--muted); }
+    .status.error { color: var(--danger); }
+    .chart-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0d131c; }
+    canvas { display: block; width: 100%; height: 315px; }
+    .chart-note { color: var(--muted); font-size: .82rem; margin: 9px 2px 0; }
+    .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+    .fact { padding: 13px; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+    .fact:nth-child(2) { border-color: var(--accent-2); }
+    .fact:nth-child(3) { border-color: var(--good); }
+    .fact b { display: block; font-size: .88rem; }
+    .fact span { display: block; margin-top: 4px; color: var(--muted); font-size: .85rem; }
+    .footer-note { margin: 22px 2px 0; color: var(--muted); font-size: .83rem; }
+    code { color: #c8e1ff; }
+    @media (max-width: 720px) {
+      main { padding: 24px 14px 36px; }
+      .layout { grid-template-columns: 1fr; }
+      .facts { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 420px) { .result-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Warium Ballistics Calculator</h1>
+      <p class="lede">Launch solutions for Peeler rockets, Ordinance rockets, and Fire Spear missiles. Distances and height are in Minecraft blocks.</p>
+    </header>
+
+    <section class="layout" aria-label="Ballistic calculator">
+      <form class="panel controls" onsubmit="return false">
+        <h2>Target</h2>
+        <label for="weapon">Projectile
+          <select id="weapon">
+            <option value="peeler">Peeler rocket</option>
+            <option value="ordinance">Ordinance rocket</option>
+            <option value="fireSpear">Fire Spear missile</option>
+          </select>
+        </label>
+        <label for="distance">Horizontal distance
+          <input id="distance" type="number" min="1" max="1500" step="1" value="250" inputmode="decimal">
+          <small>Launcher-to-target distance, level on the X/Z plane.</small>
+        </label>
+        <label for="height">Target height relative to launcher
+          <input id="height" type="number" min="-500" max="500" step="0.5" value="0" inputmode="decimal">
+          <small>Positive = target above the launch point. Negative = below it.</small>
+        </label>
+        <div class="weapon-details" id="weaponDetails"></div>
+      </form>
+
+      <section class="panel" aria-live="polite">
+        <h2>Aim solution</h2>
+        <div class="result-grid">
+          <article class="result" id="lowResult">
+            <span class="result-label">Low arc</span>
+            <strong class="result-value" id="lowAngle">—</strong>
+            <span class="result-sub" id="lowInfo">—</span>
+          </article>
+          <article class="result high" id="highResult">
+            <span class="result-label">High arc</span>
+            <strong class="result-value" id="highAngle">—</strong>
+            <span class="result-sub" id="highInfo">—</span>
+          </article>
+        </div>
+        <p class="status" id="status">Enter a target to calculate.</p>
+        <div class="chart-wrap">
+          <canvas id="trajectory" role="img" aria-label="Calculated projectile trajectories"></canvas>
+        </div>
+        <p class="chart-note">0° is level with the launcher. Positive angles point the launcher up. The graph shows the calculated center path; it does not account for terrain collisions.</p>
+      </section>
+    </section>
+
+    <section class="facts" aria-label="Selected projectile data">
+      <div class="fact"><b id="speedLabel">Launch speed</b><span id="speedValue">—</span></div>
+      <div class="fact"><b id="boostLabel">Engine boost</b><span id="boostValue">—</span></div>
+      <div class="fact"><b id="limitLabel">Flight limit</b><span id="limitValue">—</span></div>
+    </section>
+
+    <p class="footer-note">Model: Warium’s arrow projectile drag (<code>0.99</code>) and gravity (<code>0.05 blocks/tick²</code>) are applied before each rocket’s engine multiplier. Ordinance guided variants begin steering after their startup period, so this calculator intentionally shows their no-lock ballistic path.</p>
+  </main>
+
+  <script>
+    const PROJECTILES = {
+      peeler: {
+        name: 'Peeler rocket',
+        speed: 6,
+        boost: 1.01,
+        burn: 60,
+        maxTicks: 1400,
+        behavior: 'Armor Peeler launch profile. Its rocket engine boosts velocity for the first 60 ticks.',
+        flight: 'No programmed detonation',
+        precision: 'Launcher inaccuracy: 3'
+      },
+      ordinance: {
+        name: 'Ordinance rocket',
+        speed: 4.5,
+        boost: 1.02,
+        burn: 140,
+        maxTicks: 141,
+        behavior: 'Ordinance core launch profile. No-lock path only: seeker-equipped variants can steer after 10 ticks.',
+        flight: 'Detonates at 7.05 s',
+        precision: 'Launcher inaccuracy: 3'
+      },
+      fireSpear: {
+        name: 'Fire Spear missile',
+        speed: 6,
+        boost: 1.01,
+        burn: 70,
+        maxTicks: 1500,
+        behavior: 'Fire Spear hardpoint launch profile. The engine runs ten ticks longer than the Peeler rocket.',
+        flight: 'No programmed detonation',
+        precision: 'Hardpoint inaccuracy: 2'
+      }
+    };
+
+    const weapon = document.getElementById('weapon');
+    const distanceInput = document.getElementById('distance');
+    const heightInput = document.getElementById('height');
+    const details = document.getElementById('weaponDetails');
+    const canvas = document.getElementById('trajectory');
+    const ctx = canvas.getContext('2d');
+    const status = document.getElementById('status');
+    const lowAngle = document.getElementById('lowAngle');
+    const lowInfo = document.getElementById('lowInfo');
+    const highAngle = document.getElementById('highAngle');
+    const highInfo = document.getElementById('highInfo');
+    const lowResult = document.getElementById('lowResult');
+    const highResult = document.getElementById('highResult');
+
+    function simulate(profile, degrees) {
+      const radians = degrees * Math.PI / 180;
+      let x = 0;
+      let y = 0;
+      let vx = profile.speed * Math.cos(radians);
+      let vy = profile.speed * Math.sin(radians);
+      const points = [{ x, y, tick: 0 }];
+
+      for (let tick = 1; tick <= profile.maxTicks; tick += 1) {
+        x += vx;
+        y += vy;
+        points.push({ x, y, tick });
+        vx *= 0.99;
+        vy = vy * 0.99 - 0.05;
+        if (tick <= profile.burn) {
+          vx *= profile.boost;
+          vy *= profile.boost;
+        }
+        if (tick > profile.burn && Math.abs(vx) < 0.0001 && y < -1000) break;
+      }
+      return points;
+    }
+
+    function atDistance(profile, degrees, targetX) {
+      const points = simulate(profile, degrees);
+      if (targetX === 0) return { y: 0, tick: 0, points };
+      for (let i = 1; i < points.length; i += 1) {
+        const a = points[i - 1];
+        const b = points[i];
+        if (a.x <= targetX && b.x >= targetX && b.x > a.x) {
+          const fraction = (targetX - a.x) / (b.x - a.x);
+          return { y: a.y + (b.y - a.y) * fraction, tick: a.tick + fraction, points };
+        }
+      }
+      return null;
+    }
+
+    function findSolutions(profile, distance, targetHeight) {
+      const roots = [];
+      const min = -89.5;
+      const max = 89.5;
+      const step = 0.2;
+      let previousAngle = min;
+      let previous = atDistance(profile, previousAngle, distance);
+      let previousValue = previous ? previous.y - targetHeight : null;
+
+      for (let angle = min + step; angle <= max + 0.0001; angle += step) {
+        const current = atDistance(profile, angle, distance);
+        const currentValue = current ? current.y - targetHeight : null;
+        if (previousValue !== null && currentValue !== null && (currentValue === 0 || previousValue === 0 || currentValue * previousValue < 0)) {
+          let left = previousAngle;
+          let right = angle;
+          let leftValue = previousValue;
+          for (let i = 0; i < 30; i += 1) {
+            const middle = (left + right) / 2;
+            const middleSample = atDistance(profile, middle, distance);
+            if (!middleSample) break;
+            const middleValue = middleSample.y - targetHeight;
+            if (Math.abs(middleValue) < 0.00001) { left = right = middle; break; }
+            if (leftValue * middleValue <= 0) right = middle;
+            else { left = middle; leftValue = middleValue; }
+          }
+          const root = (left + right) / 2;
+          if (!roots.some(value => Math.abs(value - root) < 0.04)) roots.push(root);
+        }
+        previousAngle = angle;
+        previousValue = currentValue;
+      }
+      return roots.sort((a, b) => a - b).map(angle => ({ angle, data: atDistance(profile, angle, distance) }));
+    }
+
+    function humanTime(ticks) {
+      return `${(ticks / 20).toFixed(2)} s · ${Math.round(ticks)} ticks`;
+    }
+
+    function maxRange(profile) {
+      const points = simulate(profile, 0);
+      return points[points.length - 1].x;
+    }
+
+    function number(value, fallback) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+
+    function setResult(element, valueElement, infoElement, solution, label) {
+      if (!solution) {
+        element.style.opacity = '.58';
+        valueElement.textContent = '—';
+        infoElement.textContent = 'No valid arc';
+        return;
+      }
+      element.style.opacity = '1';
+      const sign = solution.angle >= 0 ? '+' : '−';
+      valueElement.textContent = `${sign}${Math.abs(solution.angle).toFixed(2)}°`;
+      infoElement.textContent = `${label} · ${humanTime(solution.data.tick)}`;
+    }
+
+    function drawTrajectory(profile, distance, targetHeight, solutions) {
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(280, Math.floor(canvas.clientWidth));
+      const height = Math.max(250, Math.floor(canvas.clientHeight));
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const padding = { left: 55, right: 19, top: 20, bottom: 38 };
+      const paths = solutions.map(solution => simulate(profile, solution.angle));
+      const viewPaths = paths.length ? paths : [simulate(profile, 0)];
+      let maxX = Math.max(distance * 1.08, 30);
+      let minY = Math.min(0, targetHeight);
+      let maxY = Math.max(0, targetHeight);
+      viewPaths.forEach(path => path.forEach(point => {
+        if (point.x <= maxX * 1.08) { minY = Math.min(minY, point.y); maxY = Math.max(maxY, point.y); }
+      }));
+      const spread = Math.max(16, maxY - minY);
+      minY -= spread * .16;
+      maxY += spread * .16;
+      maxX = Math.max(maxX, 45);
+      const plotW = width - padding.left - padding.right;
+      const plotH = height - padding.top - padding.bottom;
+      const xScale = x => padding.left + (x / maxX) * plotW;
+      const yScale = y => padding.top + ((maxY - y) / (maxY - minY)) * plotH;
+
+      ctx.strokeStyle = '#2b3a4d';
+      ctx.lineWidth = 1;
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillStyle = '#aab8c9';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i += 1) {
+        const y = padding.top + plotH * i / 4;
+        const value = maxY - (maxY - minY) * i / 4;
+        ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(width - padding.right, y); ctx.stroke();
+        ctx.fillText(`${value.toFixed(0)}`, padding.left - 8, y + 4);
+      }
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i += 1) {
+        const x = padding.left + plotW * i / 4;
+        const value = maxX * i / 4;
+        ctx.beginPath(); ctx.moveTo(x, padding.top); ctx.lineTo(x, height - padding.bottom); ctx.stroke();
+        ctx.fillText(`${value.toFixed(0)}`, x, height - 14);
+      }
+      const zeroY = yScale(0);
+      if (zeroY >= padding.top && zeroY <= height - padding.bottom) {
+        ctx.strokeStyle = '#6b7f98'; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(padding.left, zeroY); ctx.lineTo(width - padding.right, zeroY); ctx.stroke();
+      }
+      ctx.fillStyle = '#aab8c9';
+      ctx.textAlign = 'left'; ctx.fillText('height (blocks)', 7, padding.top + 10);
+      ctx.textAlign = 'right'; ctx.fillText('horizontal distance (blocks)', width - padding.right, height - 4);
+
+      const colors = ['#8fe3a7', '#ffbf69'];
+      paths.forEach((path, index) => {
+        ctx.strokeStyle = colors[index]; ctx.lineWidth = 2.3;
+        ctx.beginPath();
+        let started = false;
+        path.forEach(point => {
+          if (point.x > maxX) return;
+          const x = xScale(point.x); const y = yScale(point.y);
+          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      });
+      if (!paths.length) {
+        ctx.strokeStyle = '#6b7f98'; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(xScale(0), yScale(0)); ctx.lineTo(xScale(maxX), yScale(0)); ctx.stroke(); ctx.setLineDash([]);
+      }
+      const targetX = xScale(distance); const targetY = yScale(targetHeight);
+      ctx.strokeStyle = '#69b6ff'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(targetX, targetY, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#69b6ff'; ctx.textAlign = 'left';
+      ctx.fillText('target', Math.min(targetX + 8, width - 48), Math.max(targetY - 8, 13));
+    }
+
+    function update() {
+      const profile = PROJECTILES[weapon.value];
+      const distance = Math.max(0.1, number(distanceInput.value, 250));
+      const targetHeight = number(heightInput.value, 0);
+      const solutions = findSolutions(profile, distance, targetHeight);
+      const lower = solutions[0];
+      const higher = solutions.length > 1 ? solutions[solutions.length - 1] : null;
+      setResult(lowResult, lowAngle, lowInfo, lower, 'Aim this first');
+      setResult(highResult, highAngle, highInfo, higher, 'Use only with clear sky');
+      const range = maxRange(profile);
+      const rangeText = weapon.value === 'ordinance' ? `The no-lock Ordinance profile self-destructs after ${humanTime(profile.maxTicks)}.` : `Flat-fire maximum range is about ${range.toFixed(0)} blocks before drag stops useful travel.`;
+      if (!solutions.length) {
+        status.textContent = `No ballistic solution for this target. ${rangeText}`;
+        status.className = 'status error';
+      } else {
+        status.textContent = `${solutions.length === 1 ? 'One' : 'Two'} ballistic ${solutions.length === 1 ? 'solution' : 'solutions'} found. ${rangeText}`;
+        status.className = 'status';
+      }
+      details.innerHTML = `<strong>${profile.name}</strong><br>${profile.behavior}<br><span>${profile.precision}</span>`;
+      document.getElementById('speedValue').textContent = `${profile.speed.toFixed(2)} blocks/tick (${(profile.speed * 20).toFixed(0)} blocks/s at launch)`;
+      document.getElementById('boostValue').textContent = `×${profile.boost.toFixed(2)} velocity each tick for ${profile.burn} ticks`;
+      document.getElementById('limitValue').textContent = profile.flight;
+      drawTrajectory(profile, distance, targetHeight, solutions);
+    }
+
+    [weapon, distanceInput, heightInput].forEach(element => element.addEventListener('input', update));
+    window.addEventListener('resize', update);
+    update();
+  </script>
+</body>
+</html>
